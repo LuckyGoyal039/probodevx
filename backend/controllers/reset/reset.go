@@ -7,8 +7,7 @@ import (
 
 func ResetAll(c *fiber.Ctx) error {
 	data.INR_BALANCES = make(map[string]data.User)
-	data.ORDERBOOK = make(map[string]interface{})
-	data.STOCK_BALANCES = make(map[string]interface{})
-
+	data.ORDERBOOK = make(map[string]data.OrderSymbol)
+	data.STOCK_BALANCES = make(map[string]data.UserStockBalance)
 	return c.SendString("reset successfully")
 }
