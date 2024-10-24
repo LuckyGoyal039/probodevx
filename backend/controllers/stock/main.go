@@ -5,20 +5,22 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/probodevx/data"
+	"github.com/probodevx/global"
 )
 
 func GetStockBalances(c *fiber.Ctx) error {
 	userId := c.Params("userId")
 	if userId == "" {
-		return c.JSON(data.STOCK_BALANCES)
+		return c.JSON(global.StockManager.GetAllStockBalances())
 	}
-	newData, exists := data.STOCK_BALANCES[userId]
+	newData, exists := global.StockManager.GetStockBalances(userId)
 
 	if !exists {
 		return c.Status(fiber.StatusNotFound).SendString("User not found")
 	}
 	return c.JSON(newData)
 }
+
 func CreateStock(c *fiber.Ctx) error {
 	stockSymbol := c.Params("stockSymbol")
 
@@ -31,7 +33,7 @@ func CreateStock(c *fiber.Ctx) error {
 	var newSymbol data.OrderSymbol
 	data.ORDERBOOK[stockSymbol] = newSymbol
 
-	for k := range data.INR_BALANCES {
+	for k := range data.STOCK_BALANCES {
 		userEntry, exist := data.STOCK_BALANCES[k]
 
 		if exist {

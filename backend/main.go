@@ -23,7 +23,7 @@ func main() {
 	if PORT == "" {
 		PORT = "8000"
 	}
-
+	// userManager := data.NewUserManager()
 	routes.UserRoutes(app)
 	app.Post("/symbol/create/:stockSymbol", stock.CreateStock)
 	app.Post("/reset", reset.ResetAll)
@@ -34,9 +34,9 @@ func main() {
 	// app.Post("/trade/mint", stock.MintStock)
 	app.Post("/order/buy", orderbook.BuyOrder)
 	app.Post("/order/sell", orderbook.SellOrder)
-	// app.Get("/balances/inr", orderbook.GetOrderBook)
-	// app.Use("/user", routes.UserRoutes)
-	// app.Use("/user", routes.UserRoutes)
+	app.Get("/balances/inr", orderbook.GetOrderBook)
+	app.Use("/user", routes.UserRoutes)
+	app.Use("/user", routes.UserRoutes)
 
 	app.Listen(fmt.Sprintf(":%s", PORT))
 
