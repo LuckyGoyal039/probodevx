@@ -4,7 +4,6 @@ import (
 	"fmt"
 
 	"github.com/gofiber/fiber/v2"
-	"github.com/probodevx/data"
 	"github.com/probodevx/global"
 )
 
@@ -24,39 +23,14 @@ func GetStockBalances(c *fiber.Ctx) error {
 func CreateStock(c *fiber.Ctx) error {
 	stockSymbol := c.Params("stockSymbol")
 
-	_, exists := data.ORDERBOOK[stockSymbol]
+	_, exists := global.OrderBookManager.GetOrderBook(stockSymbol)
 
 	if exists {
 		return c.Status(fiber.StatusCreated).JSON(fiber.Map{"message": fmt.Sprintf("Symbol %s already exists", stockSymbol)})
 	}
 
-	var newSymbol data.OrderSymbol
-	data.ORDERBOOK[stockSymbol] = newSymbol
+	global.OrderBookManager.AddOrderBookSymbol(stockSymbol)
 
-	for k := range data.STOCK_BALANCES {
-		userEntry, exist := data.STOCK_BALANCES[k]
-
-		if exist {
-			continue
-		}
-
-		defaultYesNo := data.YesNo{
-			Quantity: 0,
-			Locked:   0,
-		}
-		stockOptions := data.StockOption{
-			Yes: defaultYesNo,
-			No:  defaultYesNo,
-		}
-
-		if userEntry == nil {
-			userEntry = make(map[string]data.StockOption)
-		}
-
-		userEntry[stockSymbol] = stockOptions
-
-		data.STOCK_BALANCES[k] = userEntry
-	}
 	return c.Status(fiber.StatusCreated).JSON(fiber.Map{"message": fmt.Sprintf("Symbol %s created", stockSymbol)})
 }
 

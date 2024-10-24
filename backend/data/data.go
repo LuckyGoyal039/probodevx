@@ -6,7 +6,7 @@ import (
 	"sync"
 )
 
-// User balance structures
+// inr balances
 type User struct {
 	Balance float32 `json:"balance"`
 	Locked  float32 `json:"locked"`
@@ -23,6 +23,7 @@ func NewUserManager() *UserManager {
 	}
 }
 
+// orderbook
 type OrderOptions struct {
 	Quantity int  `json:"quantity"`
 	Reverse  bool `json:"reverse"`
@@ -50,6 +51,7 @@ func NewOrderBookManager() *OrderBookManager {
 	}
 }
 
+// stock balances
 type YesNo struct {
 	Quantity int `json:"quantity"`
 	Locked   int `json:"locked"`
@@ -126,4 +128,52 @@ func (sm *StockManager) GetAllStockBalances() map[string]UserStockBalance {
 		result[key] = value
 	}
 	return result
+}
+func (sm *StockManager) AddStockBalancesSymbol(stockSymbol string) {
+	sm.mu.Lock()
+	defer sm.mu.Unlock()
+
+	for userID, stockBalance := range sm.stockBalances {
+		if _, exists := stockBalance[stockSymbol]; !exists {
+			stockBalance[stockSymbol] = StockOption{
+				Yes: YesNo{
+					Quantity: 0,
+					Locked:   0,
+				},
+				No: YesNo{
+					Quantity: 0,
+					Locked:   0,
+				},
+			}
+			sm.stockBalances[userID] = stockBalance
+		}
+	}
+}
+
+func (om *OrderBookManager) GetOrderBook(stockSymbol string) (OrderSymbol, bool) {
+
+	om.mu.Lock()
+	defer om.mu.Unlock()
+	symbol, exists := om.orderBook[stockSymbol]
+	return symbol, exists
+}
+func (om *OrderBookManager) GetAllOrderBook() map[string]OrderSymbol {
+
+	om.mu.Lock()
+	defer om.mu.Unlock()
+	result := om.orderBook
+	for k, v := range om.orderBook {
+		result[k] = v
+	}
+	return result
+}
+
+func (om *OrderBookManager) AddOrderBookSymbol(stockSymbol string) {
+	om.mu.Lock()
+	defer om.mu.Unlock()
+	var newSymbol = OrderSymbol{
+		Yes: make(OrderYesNo),
+		No:  make(OrderYesNo),
+	}
+	om.orderBook[stockSymbol] = newSymbol
 }
