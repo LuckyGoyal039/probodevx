@@ -255,6 +255,9 @@ func (om *OrderBookManager) CreateOrderbookPrice(stockSymbol string, stockType s
 	}
 	om.orderBook[stockSymbol] = orderSymbol
 }
+func (om *OrderBookManager) UpdateOrderBookSymbol(stockSymbol string, data OrderSymbol) {
+
+}
 
 func ResetAllManager(um *UserManager, sm *StockManager, om *OrderBookManager) {
 	um.mu.Lock()

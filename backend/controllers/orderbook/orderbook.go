@@ -4,16 +4,17 @@ import (
 	"fmt"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v2/utils"
 	"github.com/probodevx/data"
 	"github.com/probodevx/global"
 )
 
-func GetOrderBook(c *fiber.Ctx) error {
-	stockSymbol := c.Params("stockSymbol")
+func GetOrderbookSymbol(c *fiber.Ctx) error {
+	stockSymbol := utils.CopyString(c.Params("stockSymbol"))
 	if stockSymbol == "" {
-		return c.JSON(data.ORDERBOOK)
+		return c.JSON(global.OrderBookManager.GetAllOrderBook())
 	}
-	newData, exists := data.ORDERBOOK[stockSymbol]
+	newData, exists := global.OrderBookManager.GetOrderBook(stockSymbol)
 
 	if !exists {
 		return c.Status(fiber.StatusNotFound).SendString("stock symbol not found")
@@ -81,7 +82,8 @@ func SellOrder(c *fiber.Ctx) error {
 	case "no":
 		stockBalance.No.Quantity -= inputData.Quantity
 	}
-	data.STOCK_BALANCES[inputData.UserId][inputData.StockSymbol] = stockBalance
+	global.StockManager.UpdateStockBalanceSymbol(inputData.UserId, inputData.StockSymbol, stockBalance)
+	// data.STOCK_BALANCES[inputData.UserId][inputData.StockSymbol] = stockBalance
 
 	updateOrderBook := func(orderBook data.OrderYesNo) data.OrderYesNo {
 		strPrice := fmt.Sprintf("%.2f", inputData.Price)
@@ -99,7 +101,7 @@ func SellOrder(c *fiber.Ctx) error {
 		return orderBook
 	}
 
-	stockData, exists := data.ORDERBOOK[inputData.StockSymbol]
+	stockData, exists := global.OrderBookManager.GetOrderBook(inputData.StockSymbol)
 	if !exists {
 		stockData = data.OrderSymbol{
 			Yes: make(data.OrderYesNo),
@@ -114,7 +116,7 @@ func SellOrder(c *fiber.Ctx) error {
 		stockData.No = updateOrderBook(stockData.No)
 	}
 
-	data.ORDERBOOK[inputData.StockSymbol] = stockData
+	global.OrderBookManager.UpdateOrderBookSymbol(inputData.StockSymbol, stockData)
 
 	return c.SendString(fmt.Sprintf("Sell order placed for %v '%s' options at price %v.", inputData.Quantity, inputData.StockType, inputData.Price))
 }
