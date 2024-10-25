@@ -5,6 +5,7 @@ import (
 	"os"
 
 	"github.com/gofiber/fiber/v2"
+	redis "github.com/probodevx/config"
 	inrBalance "github.com/probodevx/controllers/inrbalance"
 	"github.com/probodevx/controllers/orderbook"
 	"github.com/probodevx/controllers/reset"
@@ -23,6 +24,21 @@ func main() {
 	if PORT == "" {
 		PORT = "8000"
 	}
+
+	redisHost := os.Getenv("REDIS_HOST")
+	if redisHost == "" {
+		redisHost = "localhost"
+	}
+	redisPort := os.Getenv("REDIS_PORT")
+	if redisPort == "" {
+		redisPort = "6379"
+	}
+	// redisUsername := os.Getenv("REDIS_USERNAME")
+	redisPassword := os.Getenv("REDIS_PASSWORD")
+
+	// Connect to Redis
+	redis.ConnectRedis(redisHost, redisPort, redisPassword)
+
 	// userManager := data.NewUserManager()
 	routes.UserRoutes(app)
 	app.Post("/symbol/create/:stockSymbol", stock.CreateStock)
@@ -31,12 +47,10 @@ func main() {
 	app.Get("/balances/inr/:userId?", inrBalance.GetInrBalance)
 	app.Get("/balances/stock/:userId?", stock.GetStockBalances)
 	app.Post("/onramp/inr", inrBalance.AddUserBalance)
-	// app.Post("/trade/mint", stock.MintStock)
+	// // app.Post("/trade/mint", stock.MintStock)
 	app.Post("/order/buy", orderbook.BuyOrder)
 	app.Post("/order/sell", orderbook.SellOrder)
 	app.Get("/balances/inr", orderbook.GetOrderbookSymbol)
-	app.Use("/user", routes.UserRoutes)
-	app.Use("/user", routes.UserRoutes)
 
 	app.Listen(fmt.Sprintf(":%s", PORT))
 

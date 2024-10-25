@@ -2,6 +2,7 @@ package orderbook
 
 import (
 	"errors"
+	"fmt"
 	"sort"
 	"strconv"
 
@@ -280,4 +281,24 @@ func PlaceReverseBuyOrder(stockSymbol string, price int, quantity int, stockType
 	}
 	global.OrderBookManager.CreateOrderbookPrice(stockSymbol, reverseStockType, reversePrice, quantity, userId, true)
 	return nil
+}
+
+func checkAndLockBalance(userId string, price int, quantity int) (bool, error) {
+	user, exists := global.UserManager.GetUser(userId)
+	if !exists {
+		return false, fmt.Errorf("user not found")
+	}
+
+	totalCost := price * quantity
+
+	if user.Balance < totalCost {
+		return false, fmt.Errorf("insufficient balance")
+	}
+	leftBalance := user.Balance - totalCost
+	lockedAmount := user.Locked + totalCost
+
+	global.UserManager.UpdateUserInrBalance(userId, leftBalance)
+	global.UserManager.UpdateUserInrLock(userId, lockedAmount)
+
+	return true, nil
 }

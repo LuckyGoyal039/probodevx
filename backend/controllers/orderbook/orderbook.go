@@ -121,76 +121,6 @@ func SellOrder(c *fiber.Ctx) error {
 	return c.SendString(fmt.Sprintf("Sell order placed for %v '%s' options at price %v.", inputData.Quantity, inputData.StockType, inputData.Price))
 }
 
-// func createReverseOrder(stockSymbol, stockType, userId string, price float64, quantity int) {
-// 	reversePrice := 1000 - price
-// 	reverseType := "no"
-// 	if stockType == "no" {
-// 		reverseType = "yes"
-// 	}
-
-// 	availableSymbol, exists := data.ORDERBOOK[stockSymbol]
-// 	if !exists {
-// 		availableSymbol = data.OrderSymbol{
-// 			Yes: make(data.OrderYesNo),
-// 			No:  make(data.OrderYesNo),
-// 		}
-// 		data.ORDERBOOK[stockSymbol] = availableSymbol
-// 	}
-
-// 	priceStr := strconv.FormatFloat(reversePrice, 'f', 2, 64)
-
-// 	//check
-// 	// less than or equal to input price
-// 	var reverseOrders data.PriceOptions
-// 	if reverseType == "yes" {
-// 		reverseOrders, exists = availableSymbol.Yes[priceStr]
-// 	} else {
-// 		reverseOrders, exists = availableSymbol.No[priceStr]
-// 	}
-
-// 	if !exists {
-// 		reverseOrders = data.PriceOptions{
-// 			Total:  quantity,
-// 			Orders: make(map[string]data.OrderOptions),
-// 		}
-// 	} else {
-// 		reverseOrders.Total += quantity
-// 	}
-
-// 	reverseOrders.Orders[userId] = data.OrderOptions{
-// 		Quantity: quantity,
-// 		Reverse:  true,
-// 	}
-
-// 	if reverseType == "yes" {
-// 		availableSymbol.Yes[priceStr] = reverseOrders
-// 	} else {
-// 		availableSymbol.No[priceStr] = reverseOrders
-// 	}
-
-// 	data.ORDERBOOK[stockSymbol] = availableSymbol
-// }
-
-func checkAndLockBalance(userId string, price int, quantity int) (bool, error) {
-	user, exists := global.UserManager.GetUser(userId)
-	if !exists {
-		return false, fmt.Errorf("User not found")
-	}
-
-	totalCost := price * quantity
-
-	if user.Balance < totalCost {
-		return false, fmt.Errorf("Insufficient balance")
-	}
-	leftBalance := user.Balance - totalCost
-	lockedAmount := user.Locked + totalCost
-
-	global.UserManager.UpdateUserInrBalance(userId, leftBalance)
-	global.UserManager.UpdateUserInrLock(userId, lockedAmount)
-
-	return true, nil
-}
-
 type inputFormat struct {
 	UserId      string `json:"userId"`
 	StockSymbol string `json:"stockSymbol"`
@@ -225,8 +155,5 @@ func BuyOrder(c *fiber.Ctx) error {
 		PlaceReverseBuyOrder(inputData.StockSymbol, inputData.Price, inputData.Quantity, inputData.StockType, inputData.UserId)
 	}
 	// send this event to redis queue with symbol
-	// createReverseOrder(inputData.StockSymbol, inputData.StockType, inputData.UserId, inputData.Price, inputData.Quantity)
-	// return c.JSON(fiber.Map{"message": "Buy order placed and reverse order created"})
-
 	return c.JSON(fiber.Map{"message": "Buy order placed and trade executed"})
 }
