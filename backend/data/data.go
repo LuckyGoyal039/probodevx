@@ -3,6 +3,7 @@ package data
 
 import (
 	"fmt"
+	"strconv"
 	"sync"
 )
 
@@ -205,6 +206,54 @@ func (om *OrderBookManager) AddOrderBookSymbol(stockSymbol string) {
 		No:  make(OrderYesNo),
 	}
 	om.orderBook[stockSymbol] = newSymbol
+}
+func (om *OrderBookManager) CreateOrderbookPrice(stockSymbol string, stockType string, price int, quantity int, userId string, reverse bool) {
+	var orderData OrderYesNo
+	orderSymbol, exists := om.GetOrderBook(stockSymbol)
+	if !exists {
+		orderSymbol = OrderSymbol{
+			Yes: make(OrderYesNo),
+			No:  make(OrderYesNo),
+		}
+		om.AddOrderBookSymbol(stockSymbol)
+	}
+
+	if stockType == "yes" {
+		orderData = orderSymbol.Yes
+	} else if stockType == "no" {
+		orderData = orderSymbol.No
+	}
+
+	priceStr := strconv.FormatInt(int64(price), 10)
+
+	priceLevel, exists := orderData[priceStr]
+	if !exists {
+		priceLevel = PriceOptions{
+			Total:  quantity,
+			Orders: make(Order),
+		}
+	} else {
+		priceLevel.Total += quantity
+	}
+
+	if userOrder, exists := priceLevel.Orders[userId]; exists {
+		userOrder.Quantity += quantity
+		userOrder.Reverse = reverse
+		priceLevel.Orders[userId] = userOrder
+	} else {
+		priceLevel.Orders[userId] = OrderOptions{
+			Quantity: quantity,
+			Reverse:  reverse,
+		}
+	}
+
+	orderData[priceStr] = priceLevel
+	if stockType == "yes" {
+		orderSymbol.Yes = orderData
+	} else {
+		orderSymbol.No = orderData
+	}
+	om.orderBook[stockSymbol] = orderSymbol
 }
 
 func ResetAllManager(um *UserManager, sm *StockManager, om *OrderBookManager) {

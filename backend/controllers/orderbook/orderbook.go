@@ -330,10 +330,6 @@ func checkAndLockBalance(userId string, price int, quantity int) (bool, error) {
 	return true, nil
 }
 
-func failedBuyOrder(inputData inputFormat) {
-
-}
-
 type inputFormat struct {
 	UserId      string `json:"userId"`
 	StockSymbol string `json:"stockSymbol"`
@@ -352,7 +348,7 @@ func BuyOrder(c *fiber.Ctx) error {
 	// Check and lock balance
 	ok, err := checkAndLockBalance(inputData.UserId, inputData.Price, inputData.Quantity)
 	if !ok {
-		failedBuyOrder(inputData)
+		// failedBuyOrder(inputData)
 		if err.Error() == "User not found" {
 			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"message": err.Error()})
 		}
@@ -374,7 +370,7 @@ func BuyOrder(c *fiber.Ctx) error {
 		case "partial":
 			PlacePartialOrder()
 		case "none":
-			PlaceReverseBuyOrder()
+			PlaceReverseBuyOrder(inputData.StockSymbol, inputData.Price, inputData.Quantity, inputData.StockType, inputData.UserId)
 		}
 		// send this event to redis queue with symbol
 		// createReverseOrder(inputData.StockSymbol, inputData.StockType, inputData.UserId, inputData.Price, inputData.Quantity)

@@ -213,6 +213,21 @@ func min(a, b int) int {
 func PlacePartialOrder() {
 
 }
-func PlaceReverseBuyOrder() {
+func PlaceReverseBuyOrder(stockSymbol string, price int, quantity int, stockType string, userId string) error {
 
+	var reverseStockType string
+	if stockType == "yes" {
+		reverseStockType = "no"
+	} else if stockType == "no" {
+		reverseStockType = "yes"
+	} else {
+		return errors.New("invalid stock type")
+	}
+
+	reversePrice := 1000 - price
+	if reversePrice < 0 {
+		return errors.New("invalid price for reverse order")
+	}
+	global.OrderBookManager.CreateOrderbookPrice(stockSymbol, reverseStockType, reversePrice, quantity, userId, true)
+	return nil
 }
