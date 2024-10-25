@@ -75,6 +75,8 @@ func NewStockManager() *StockManager {
 	}
 }
 
+// All combine
+
 // Thread-safe methods for UserManager
 func (um *UserManager) CreateUser(userId string) error {
 	um.mu.Lock()
@@ -90,7 +92,6 @@ func (um *UserManager) CreateUser(userId string) error {
 	}
 	return nil
 }
-
 func (um *UserManager) GetUser(userId string) (*User, bool) {
 	um.mu.Lock()
 	defer um.mu.Unlock()
@@ -98,7 +99,6 @@ func (um *UserManager) GetUser(userId string) (*User, bool) {
 	user, exists := um.inrBalances[userId]
 	return user, exists
 }
-
 func (um *UserManager) GetAllUsers() map[string]User {
 	um.mu.Lock()
 	defer um.mu.Unlock()
@@ -118,7 +118,6 @@ func (sm *StockManager) GetStockBalances(userId string) (UserStockBalance, bool)
 	balances, exists := sm.stockBalances[userId]
 	return balances, exists
 }
-
 func (sm *StockManager) GetAllStockBalances() map[string]UserStockBalance {
 	sm.mu.Lock()
 	defer sm.mu.Unlock()
@@ -167,7 +166,6 @@ func (om *OrderBookManager) GetAllOrderBook() map[string]OrderSymbol {
 	}
 	return result
 }
-
 func (om *OrderBookManager) AddOrderBookSymbol(stockSymbol string) {
 	om.mu.Lock()
 	defer om.mu.Unlock()
@@ -176,4 +174,18 @@ func (om *OrderBookManager) AddOrderBookSymbol(stockSymbol string) {
 		No:  make(OrderYesNo),
 	}
 	om.orderBook[stockSymbol] = newSymbol
+}
+
+func ResetAllManager(um *UserManager, sm *StockManager, om *OrderBookManager) {
+	um.mu.Lock()
+	sm.mu.Lock()
+	om.mu.Lock()
+
+	defer um.mu.Unlock()
+	defer sm.mu.Unlock()
+	defer om.mu.Unlock()
+
+	um.inrBalances = make(map[string]*User)
+	sm.stockBalances = make(map[string]UserStockBalance)
+	om.orderBook = make(map[string]OrderSymbol)
 }
