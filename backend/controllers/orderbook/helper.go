@@ -60,7 +60,7 @@ func CheckCanPlaceOrder(stockSymbol string, price int, quantity int, stockType s
 	return "none"
 }
 
-func PlaceFullfillOrder(stockSymbol string, price int, quantity int, stockType string, userId string) error {
+func PlaceFullFillOrder(stockSymbol string, price int, quantity int, stockType string, userId string) error {
 
 	userBalance, exists := global.UserManager.GetUser(userId)
 	if !exists {
@@ -210,9 +210,59 @@ func min(a, b int) int {
 	}
 	return b
 }
-func PlacePartialOrder() {
+
+func GetFullFillableQuantity(stockSymbol string, price int, quantity int, stockType string) int {
+	orderData, exists := global.OrderBookManager.GetOrderBook(stockSymbol)
+	if !exists {
+		return 0
+	}
+	var stockTypeData data.OrderYesNo
+	if stockType == "yes" {
+		stockTypeData = orderData.Yes
+	} else if stockType == "no" {
+		stockTypeData = orderData.No
+	} else {
+		return 0
+	}
+
+	availableQuantity := 0
+
+	for priceStr, priceData := range stockTypeData {
+		currentPrice64, err := strconv.ParseInt(priceStr, 10, 64)
+		if err != nil {
+			continue
+		}
+		currentPrice := int(currentPrice64)
+
+		if currentPrice <= price {
+			total := priceData.Total
+			if total > 0 {
+				availableQuantity += total
+				if availableQuantity >= quantity {
+					return quantity
+				}
+			}
+		}
+	}
+	return availableQuantity
+}
+
+func PlacePartialOrder(stockSymbol string, price int, quantity int, stockType string, userId string) {
+
+	fullFillQty := GetFullFillableQuantity(stockSymbol, price, quantity, stockType)
+
+	remainingQuantity := quantity - fullFillQty
+
+	if fullFillQty > 0 {
+		PlaceFullFillOrder(stockSymbol, price, quantity, stockType, userId)
+	}
+
+	if remainingQuantity > 0 {
+		PlaceReverseBuyOrder(stockSymbol, price, quantity, stockType, userId)
+	}
 
 }
+
 func PlaceReverseBuyOrder(stockSymbol string, price int, quantity int, stockType string, userId string) error {
 
 	var reverseStockType string
