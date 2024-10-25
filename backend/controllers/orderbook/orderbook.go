@@ -2,7 +2,6 @@ package orderbook
 
 import (
 	"fmt"
-	"strconv"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/probodevx/data"
@@ -46,9 +45,9 @@ func SellOrder(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusBadRequest).SendString("Invalid inputs")
 	}
 
-	userStockBalances, userExists := data.STOCK_BALANCES[inputData.UserId]
+	userStockBalances, userExists := global.StockManager.GetStockBalances(inputData.UserId)
 	if !userExists {
-		return c.Status(fiber.StatusNotFound).SendString("User not found")
+		return c.Status(fiber.StatusNotFound).SendString("user not found")
 	}
 
 	stockBalance, stockExists := userStockBalances[inputData.StockSymbol]
@@ -120,55 +119,55 @@ func SellOrder(c *fiber.Ctx) error {
 	return c.SendString(fmt.Sprintf("Sell order placed for %v '%s' options at price %v.", inputData.Quantity, inputData.StockType, inputData.Price))
 }
 
-func createReverseOrder(stockSymbol, stockType, userId string, price float64, quantity int) {
-	reversePrice := 1000 - price
-	reverseType := "no"
-	if stockType == "no" {
-		reverseType = "yes"
-	}
+// func createReverseOrder(stockSymbol, stockType, userId string, price float64, quantity int) {
+// 	reversePrice := 1000 - price
+// 	reverseType := "no"
+// 	if stockType == "no" {
+// 		reverseType = "yes"
+// 	}
 
-	availableSymbol, exists := data.ORDERBOOK[stockSymbol]
-	if !exists {
-		availableSymbol = data.OrderSymbol{
-			Yes: make(data.OrderYesNo),
-			No:  make(data.OrderYesNo),
-		}
-		data.ORDERBOOK[stockSymbol] = availableSymbol
-	}
+// 	availableSymbol, exists := data.ORDERBOOK[stockSymbol]
+// 	if !exists {
+// 		availableSymbol = data.OrderSymbol{
+// 			Yes: make(data.OrderYesNo),
+// 			No:  make(data.OrderYesNo),
+// 		}
+// 		data.ORDERBOOK[stockSymbol] = availableSymbol
+// 	}
 
-	priceStr := strconv.FormatFloat(reversePrice, 'f', 2, 64)
+// 	priceStr := strconv.FormatFloat(reversePrice, 'f', 2, 64)
 
-	//check
-	// less than or equal to input price
-	var reverseOrders data.PriceOptions
-	if reverseType == "yes" {
-		reverseOrders, exists = availableSymbol.Yes[priceStr]
-	} else {
-		reverseOrders, exists = availableSymbol.No[priceStr]
-	}
+// 	//check
+// 	// less than or equal to input price
+// 	var reverseOrders data.PriceOptions
+// 	if reverseType == "yes" {
+// 		reverseOrders, exists = availableSymbol.Yes[priceStr]
+// 	} else {
+// 		reverseOrders, exists = availableSymbol.No[priceStr]
+// 	}
 
-	if !exists {
-		reverseOrders = data.PriceOptions{
-			Total:  quantity,
-			Orders: make(map[string]data.OrderOptions),
-		}
-	} else {
-		reverseOrders.Total += quantity
-	}
+// 	if !exists {
+// 		reverseOrders = data.PriceOptions{
+// 			Total:  quantity,
+// 			Orders: make(map[string]data.OrderOptions),
+// 		}
+// 	} else {
+// 		reverseOrders.Total += quantity
+// 	}
 
-	reverseOrders.Orders[userId] = data.OrderOptions{
-		Quantity: quantity,
-		Reverse:  true,
-	}
+// 	reverseOrders.Orders[userId] = data.OrderOptions{
+// 		Quantity: quantity,
+// 		Reverse:  true,
+// 	}
 
-	if reverseType == "yes" {
-		availableSymbol.Yes[priceStr] = reverseOrders
-	} else {
-		availableSymbol.No[priceStr] = reverseOrders
-	}
+// 	if reverseType == "yes" {
+// 		availableSymbol.Yes[priceStr] = reverseOrders
+// 	} else {
+// 		availableSymbol.No[priceStr] = reverseOrders
+// 	}
 
-	data.ORDERBOOK[stockSymbol] = availableSymbol
-}
+// 	data.ORDERBOOK[stockSymbol] = availableSymbol
+// }
 
 func checkAndLockBalance(userId string, price int, quantity int) (bool, error) {
 	user, exists := global.UserManager.GetUser(userId)
