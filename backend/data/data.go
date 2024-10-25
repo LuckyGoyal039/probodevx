@@ -167,6 +167,18 @@ func (sm *StockManager) AddStockBalancesSymbol(stockSymbol string) {
 		}
 	}
 }
+func (sm *StockManager) UpdateStockBalanceSymbol(userId string, stockSymbol string, data StockOption) (UserStockBalance, error) {
+	sm.mu.Lock()
+	defer sm.mu.Unlock()
+
+	user, exists := sm.stockBalances[userId]
+	if !exists {
+		return UserStockBalance{}, fmt.Errorf("User not found")
+	}
+	user[stockSymbol] = data
+	sm.stockBalances[userId] = user
+	return user, nil
+}
 
 func (om *OrderBookManager) GetOrderBook(stockSymbol string) (OrderSymbol, bool) {
 

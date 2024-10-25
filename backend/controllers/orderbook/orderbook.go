@@ -310,21 +310,22 @@ func createReverseOrder(stockSymbol, stockType, userId string, price float64, qu
 	data.ORDERBOOK[stockSymbol] = availableSymbol
 }
 
-func checkAndLockBalance(userId string, price float64, quantity int) (bool, error) {
-	userInr, exists := global.UserManager.INR_BALANCES[userId]
+func checkAndLockBalance(userId string, price int, quantity int) (bool, error) {
+	user, exists := global.UserManager.GetUser(userId)
 	if !exists {
 		return false, fmt.Errorf("User not found")
 	}
 
-	totalCost := float32(price) * float32(quantity)
+	totalCost := price * quantity
 
-	if userInr.Balance < totalCost {
+	if user.Balance < totalCost {
 		return false, fmt.Errorf("Insufficient balance")
 	}
+	leftBalance := user.Balance - totalCost
+	lockedAmount := user.Locked + totalCost
 
-	userInr.Locked += totalCost
-	userInr.Balance -= totalCost
-	global.UserManager.INR_BALANCES[userId] = userInr
+	global.UserManager.UpdateUserInrBalance(userId, leftBalance)
+	global.UserManager.UpdateUserInrLock(userId, lockedAmount)
 
 	return true, nil
 }
@@ -334,11 +335,11 @@ func failedBuyOrder(inputData inputFormat) {
 }
 
 type inputFormat struct {
-	UserId      string  `json:"userId"`
-	StockSymbol string  `json:"stockSymbol"`
-	Quantity    int     `json:"quantity"`
-	Price       float64 `json:"price"`
-	StockType   string  `json:"stockType"`
+	UserId      string `json:"userId"`
+	StockSymbol string `json:"stockSymbol"`
+	Quantity    int    `json:"quantity"`
+	Price       int    `json:"price"`
+	StockType   string `json:"stockType"`
 }
 
 func BuyOrder(c *fiber.Ctx) error {
@@ -358,11 +359,11 @@ func BuyOrder(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusPaymentRequired).JSON(fiber.Map{"message": err.Error()})
 	}
 
-	availableSymbol, exists := data.ORDERBOOK[inputData.StockSymbol]
+	availableSymbol, exists := global.OrderBookManager.GetOrderBook(inputData.StockSymbol)
 	if !exists {
 
 		// create symbol in orderbook
-		CreateSymbolOrderbook(inputData.StockSymbol)
+		global.OrderBookManager.AddOrderBookSymbol(inputData.StockSymbol)
 
 		// check it can place order or not
 		canPlace := CheckCanPlaceOrder(inputData.StockSymbol, inputData.Price, inputData.Quantity, inputData.StockType)

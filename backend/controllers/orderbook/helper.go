@@ -9,20 +9,9 @@ import (
 	"github.com/probodevx/global"
 )
 
-func CreateSymbolOrderbook(stockSymbol string) {
-	availableSymbol, exists := data.ORDERBOOK[stockSymbol]
-	if !exists {
-		availableSymbol = data.OrderSymbol{
-			Yes: make(data.OrderYesNo),
-			No:  make(data.OrderYesNo),
-		}
-		data.ORDERBOOK[stockSymbol] = availableSymbol
-	}
-}
+func CheckCanPlaceOrder(stockSymbol string, price int, quantity int, stockType string) string {
 
-func CheckCanPlaceOrder(stockSymbol string, price float64, quantity int, stockType string) string {
-
-	orderData, exists := data.ORDERBOOK[stockSymbol]
+	orderData, exists := global.OrderBookManager.GetOrderBook(stockSymbol)
 	if !exists {
 		return "none"
 	}
@@ -41,10 +30,11 @@ func CheckCanPlaceOrder(stockSymbol string, price float64, quantity int, stockTy
 
 	for priceStr, priceData := range stockTypeData {
 
-		currentPrice, err := strconv.ParseFloat(priceStr, 64)
+		currentPrice64, err := strconv.ParseInt(priceStr, 10, 64)
 		if err != nil {
 			continue
 		}
+		currentPrice := int(currentPrice64)
 
 		if currentPrice <= price {
 			hasValidPrice = true
@@ -70,20 +60,20 @@ func CheckCanPlaceOrder(stockSymbol string, price float64, quantity int, stockTy
 	return "none"
 }
 
-func PlaceFullfillOrder(stockSymbol string, price float64, quantity int, stockType string, userId string) error {
+func PlaceFullfillOrder(stockSymbol string, price int, quantity int, stockType string, userId string) error {
 
-	userBalance, exists := global.UserManager.INR_BALANCES[userId]
+	userBalance, exists := global.UserManager.GetUser(userId)
 	if !exists {
 		return errors.New("user not found in balance sheet")
 	}
 
-	totalCost := price * float64(quantity)
-	availableBalance := float64(userBalance.Balance)
+	totalCost := price * quantity
+	availableBalance := userBalance.Balance
 	if availableBalance < totalCost {
 		return errors.New("insufficient balance")
 	}
 
-	orderData, exists := data.ORDERBOOK[stockSymbol]
+	orderData, exists := global.OrderBookManager.GetOrderBook(stockSymbol)
 	if !exists {
 		return errors.New("stock symbol not found")
 	}
@@ -96,26 +86,27 @@ func PlaceFullfillOrder(stockSymbol string, price float64, quantity int, stockTy
 	}
 
 	remainingQuantity := quantity
-	costIncurred := 0.0
+	costIncurred := 0
 
-	var prices []float64
+	var prices []int
 	for priceStr := range stockTypeData {
-		currPrice, err := strconv.ParseFloat(priceStr, 64)
+		currPrice64, err := strconv.ParseInt(priceStr, 10, 64)
 		if err != nil {
 			continue
 		}
+		currPrice := int(currPrice64)
 		if currPrice <= price {
 			prices = append(prices, currPrice)
 		}
 	}
-	sort.Float64s(prices)
+	sort.Ints(prices)
 
 	for _, currentPrice := range prices {
 		if currentPrice > price {
 			continue
 		}
 
-		priceStr := strconv.FormatFloat(currentPrice, 'f', -1, 64)
+		priceStr := strconv.FormatInt(int64(currentPrice), 10)
 		priceData := stockTypeData[priceStr]
 
 		for sellerId, orderInfo := range priceData.Orders {
@@ -133,7 +124,7 @@ func PlaceFullfillOrder(stockSymbol string, price float64, quantity int, stockTy
 
 			if quantityToTake > 0 {
 				// Update seller's stock balance
-				sellerBalance, exists := data.STOCK_BALANCES[sellerId]
+				sellerBalance, exists := global.StockManager.GetStockBalances(sellerId)
 				if !exists {
 					sellerBalance = make(data.UserStockBalance)
 				}
@@ -149,11 +140,12 @@ func PlaceFullfillOrder(stockSymbol string, price float64, quantity int, stockTy
 				} else {
 					stockOption.No.Locked -= quantityToTake
 				}
-				sellerBalance[stockSymbol] = stockOption
-				data.STOCK_BALANCES[sellerId] = sellerBalance
+				// sellerBalance[stockSymbol] = stockOption
+				global.StockManager.UpdateStockBalanceSymbol(sellerId, stockSymbol, stockOption)
+				// data.STOCK_BALANCES[sellerId] = sellerBalance
 
 				// Update buyer's stock balance
-				buyerBalance, exists := data.STOCK_BALANCES[userId]
+				buyerBalance, exists := global.StockManager.GetStockBalances(userId)
 				if !exists {
 					buyerBalance = make(data.UserStockBalance)
 				}
@@ -171,8 +163,8 @@ func PlaceFullfillOrder(stockSymbol string, price float64, quantity int, stockTy
 				} else {
 					buyerStockOption.No.Quantity += quantityToTake
 				}
-				buyerBalance[stockSymbol] = buyerStockOption
-				data.STOCK_BALANCES[userId] = buyerBalance
+				// buyerBalance[stockSymbol] = buyerStockOption
+				global.StockManager.UpdateStockBalanceSymbol(userId, stockSymbol, buyerStockOption)
 
 				priceData.Total -= quantityToTake
 				orderInfo.Quantity -= quantityToTake
@@ -181,18 +173,21 @@ func PlaceFullfillOrder(stockSymbol string, price float64, quantity int, stockTy
 				}
 
 				remainingQuantity -= quantityToTake
-				costIncurred += float64(quantityToTake) * currentPrice
+				costIncurred += quantityToTake * currentPrice
 
-				buyerInrBalance := global.UserManager.INR_BALANCES[userId]
-				sellerInrBalance := global.UserManager.INR_BALANCES[sellerId]
+				buyerInrBalance, exists := global.UserManager.GetUser(userId)
+				sellerInrBalance, exists := global.UserManager.GetUser(sellerId)
+				if !exists {
+					panic("user not found")
+				}
 
 				// Update balances
-				buyerInrBalance.Balance -= float32(costIncurred)
-				sellerInrBalance.Balance += float32(costIncurred)
+				totalBuyerBalance := buyerInrBalance.Balance - costIncurred
+				totalSellerBalance := sellerInrBalance.Balance + costIncurred
 
 				// Save back to map
-				global.UserManager.INR_BALANCES[userId] = buyerInrBalance
-				global.UserManager.INR_BALANCES[sellerId] = sellerInrBalance
+				global.UserManager.UpdateUserInrBalance(userId, totalBuyerBalance)
+				global.UserManager.UpdateUserInrBalance(sellerId, totalSellerBalance)
 			}
 		}
 
