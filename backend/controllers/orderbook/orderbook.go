@@ -95,7 +95,6 @@ func SellOrder(c *fiber.Ctx) error {
 		}
 
 		priceOption.Total += inputData.Quantity
-		// priceOption.Orders[inputData.UserId].Quantity += inputData.Quantity
 
 		orderBook[strPrice] = priceOption
 		return orderBook
