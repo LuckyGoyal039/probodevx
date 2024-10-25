@@ -8,8 +8,8 @@ import (
 
 // inr balances
 type User struct {
-	Balance float32 `json:"balance"`
-	Locked  float32 `json:"locked"`
+	Balance int `json:"balance"`
+	Locked  int `json:"locked"`
 }
 
 type UserManager struct {
@@ -75,9 +75,6 @@ func NewStockManager() *StockManager {
 	}
 }
 
-// All combine
-
-// Thread-safe methods for UserManager
 func (um *UserManager) CreateUser(userId string) error {
 	um.mu.Lock()
 	defer um.mu.Unlock()
@@ -109,6 +106,28 @@ func (um *UserManager) GetAllUsers() map[string]User {
 		result[k] = *v
 	}
 	return result
+}
+func (um *UserManager) UpdateUserInrBalance(userId string, balance int) (*User, error) {
+	um.mu.Lock()
+	defer um.mu.Unlock()
+	user, exists := um.inrBalances[userId]
+	if !exists {
+		return nil, fmt.Errorf("user not found")
+	}
+	user.Balance = balance
+	um.inrBalances[userId] = user
+	return user, nil
+}
+func (um *UserManager) UpdateUserInrLock(userId string, lock int) (*User, error) {
+	um.mu.Lock()
+	defer um.mu.Unlock()
+	user, exists := um.inrBalances[userId]
+	if !exists {
+		return nil, fmt.Errorf("user not found")
+	}
+	user.Locked = lock
+	um.inrBalances[userId] = user
+	return user, nil
 }
 
 func (sm *StockManager) GetStockBalances(userId string) (UserStockBalance, bool) {
