@@ -67,7 +67,7 @@ func main() {
 	app.Get("/balances/stock/:userId?", stock.GetStockBalances)
 	app.Post("/order/buy", orderbook.BuyOrder)
 	app.Post("/order/sell", orderbook.SellOrder)
-	app.Get("/balances/inr", orderbook.GetOrderbookSymbol)
+	// app.Get("/balances/inr", orderbook.GetOrderb
 	// app.Post("/trade/mint", stock.MintStock)
 
 	//wss api
@@ -79,11 +79,8 @@ func main() {
 		}
 		return fiber.ErrUpgradeRequired
 	})
-	wsApp.Get("/ws/:event", websocket.New(func(c *websocket.Conn) {
-		wss.ConnectSocket(c)
-	}))
-	wsApp.Post("/broadcast/:event", wss.BroadCastMessage)
-	// wsApp.Get()
+	wsApp.Get("/ws/:event", wss.WebSocketHandler)
+
 	go func() {
 		wsApp.Listen(fmt.Sprintf(":%s", WSPORT))
 	}()
