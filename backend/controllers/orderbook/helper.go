@@ -1,11 +1,14 @@
 package orderbook
 
 import (
+	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"sort"
 	"strconv"
 
+	redis "github.com/probodevx/config"
 	"github.com/probodevx/data"
 	"github.com/probodevx/global"
 )
@@ -301,4 +304,20 @@ func checkAndLockBalance(userId string, price int, quantity int) (bool, error) {
 	global.UserManager.UpdateUserInrLock(userId, lockedAmount)
 
 	return true, nil
+}
+
+func PushInQueue(stockSymbol string, orderbookData data.OrderSymbol) error {
+	ctx := context.TODO()
+
+	jsonData, err := json.Marshal(orderbookData)
+	if err != nil {
+		return fmt.Errorf("error marshaling orderbook data %s", err)
+	}
+	queryKey := fmt.Sprintf("orderbook:%s", stockSymbol)
+
+	if _, err := redis.Redis.LPush(ctx, queryKey, jsonData).Result(); err != nil {
+		return fmt.Errorf("error pushing in redis: %s", err)
+	}
+
+	return nil
 }

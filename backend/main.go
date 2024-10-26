@@ -17,7 +17,10 @@ func main() {
 
 	// connect db here
 
-	app := fiber.New()
+	app := fiber.New(fiber.Config{
+		Immutable: true,
+		Prefork:   false,
+	})
 
 	PORT := os.Getenv("PORT")
 
@@ -41,12 +44,14 @@ func main() {
 
 	// userManager := data.NewUserManager()
 	routes.UserRoutes(app)
+	//not working
+	app.Post("/onramp/inr", inrBalance.AddUserBalance)
+
 	app.Post("/symbol/create/:stockSymbol", stock.CreateStock)
 	app.Post("/reset", reset.ResetAll)
 	app.Get("/orderbook/:stockSymbol?", orderbook.GetOrderbookSymbol)
 	app.Get("/balances/inr/:userId?", inrBalance.GetInrBalance)
 	app.Get("/balances/stock/:userId?", stock.GetStockBalances)
-	app.Post("/onramp/inr", inrBalance.AddUserBalance)
 	// // app.Post("/trade/mint", stock.MintStock)
 	app.Post("/order/buy", orderbook.BuyOrder)
 	app.Post("/order/sell", orderbook.SellOrder)

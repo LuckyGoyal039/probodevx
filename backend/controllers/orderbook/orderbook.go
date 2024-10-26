@@ -23,10 +23,6 @@ func GetOrderbookSymbol(c *fiber.Ctx) error {
 }
 
 func SellOrder(c *fiber.Ctx) error {
-	// body parse the data
-	// check in stock_balances for that user
-	// then check the symbol for that user
-	// then check the yes or not quantity for that user
 	// then deduct the quantity and lock the quantity
 	// check for the symbol
 	// check for price if not then create new
@@ -45,7 +41,7 @@ func SellOrder(c *fiber.Ctx) error {
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).SendString("Invalid inputs")
 	}
-
+	//
 	userStockBalances, userExists := global.StockManager.GetStockBalances(inputData.UserId)
 	if !userExists {
 		return c.Status(fiber.StatusNotFound).SendString("user not found")
@@ -155,5 +151,11 @@ func BuyOrder(c *fiber.Ctx) error {
 		PlaceReverseBuyOrder(inputData.StockSymbol, inputData.Price, inputData.Quantity, inputData.StockType, inputData.UserId)
 	}
 	// send this event to redis queue with symbol
+	if orderbookData, exists := global.OrderBookManager.GetOrderBook(inputData.StockSymbol); exists {
+		err := PushInQueue(inputData.StockSymbol, orderbookData)
+		if err != nil {
+			panic(fmt.Sprintf("error: %s", err))
+		}
+	}
 	return c.JSON(fiber.Map{"message": "Buy order placed and trade executed"})
 }
