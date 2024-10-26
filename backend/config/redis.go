@@ -11,16 +11,37 @@ var Redis *redis.Client
 
 func ConnectRedis(redisHost string, redisPort string, redisPassword string) *redis.Client {
 	redisUrl := redisHost + ":" + redisPort
-	Client := redis.NewClient(&redis.Options{
+
+	Redis = redis.NewClient(&redis.Options{
 		Addr:     redisUrl,
 		Password: redisPassword,
 		DB:       0,
 	})
 
-	if err := Client.Ping(context.TODO()).Err(); err != nil {
-		panic("failed to start redis: " + err.Error())
+	ctx := context.Background()
+	_, err := Redis.Ping(ctx).Result()
+	if err != nil {
+		panic("failed to connect to redis: " + err.Error())
 	}
 
 	fmt.Printf("connected to redis on port: %s\n", redisPort)
-	return Client
+	return Redis
+}
+
+func GetRedisClient() *redis.Client {
+	return Redis
+}
+
+func CheckRedisConnection() error {
+	if Redis == nil {
+		return fmt.Errorf("redis client is not initialized")
+	}
+
+	ctx := context.Background()
+	_, err := Redis.Ping(ctx).Result()
+	if err != nil {
+		return fmt.Errorf("redis connection error: %v", err)
+	}
+
+	return nil
 }

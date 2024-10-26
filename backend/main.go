@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"log"
 	"os"
 
 	"github.com/gofiber/fiber/v2"
@@ -41,6 +42,9 @@ func main() {
 
 	// Connect to Redis
 	redis.ConnectRedis(redisHost, redisPort, redisPassword)
+	if err := redis.CheckRedisConnection(); err != nil {
+		log.Fatalf("Redis connection error: %v", err)
+	}
 
 	// userManager := data.NewUserManager()
 	routes.UserRoutes(app)
