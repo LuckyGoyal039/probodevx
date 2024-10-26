@@ -71,7 +71,7 @@ func SellOrder(c *fiber.Ctx) error {
 	if availableQuantity < inputData.Quantity {
 		return c.Status(fiber.StatusBadRequest).SendString("Insufficient balance")
 	}
-
+	//check
 	switch inputData.StockType {
 	case "yes":
 		stockBalance.Yes.Quantity -= inputData.Quantity

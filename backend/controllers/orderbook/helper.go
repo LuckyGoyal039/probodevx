@@ -307,6 +307,12 @@ func checkAndLockBalance(userId string, price int, quantity int) (bool, error) {
 }
 
 func PushInQueue(stockSymbol string, orderbookData data.OrderSymbol) error {
+
+	if err := redis.CheckRedisConnection(); err != nil {
+		return fmt.Errorf("redis connection error: %v", err)
+	}
+	redisClient := redis.GetRedisClient()
+
 	ctx := context.TODO()
 
 	jsonData, err := json.Marshal(orderbookData)
@@ -315,7 +321,11 @@ func PushInQueue(stockSymbol string, orderbookData data.OrderSymbol) error {
 	}
 	queryKey := fmt.Sprintf("orderbook:%s", stockSymbol)
 
-	if _, err := redis.Redis.LPush(ctx, queryKey, jsonData).Result(); err != nil {
+	if redis.Redis == nil {
+		return fmt.Errorf("Redis client is nil. Please ensure Redis is properly initialized")
+	}
+
+	if _, err := redisClient.LPush(ctx, queryKey, jsonData).Result(); err != nil {
 		return fmt.Errorf("error pushing in redis: %s", err)
 	}
 
