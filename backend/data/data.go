@@ -97,6 +97,23 @@ func (um *UserManager) GetUser(userId string) (*User, bool) {
 	user, exists := um.inrBalances[userId]
 	return user, exists
 }
+func (um *UserManager) GetUserBalance(userId string) (int, bool) {
+	um.mu.Lock()
+	defer um.mu.Unlock()
+
+	user, exists := um.inrBalances[userId]
+	balance := user.Balance
+	return balance, exists
+}
+func (um *UserManager) GetUserLocked(userId string) (int, bool) {
+	um.mu.Lock()
+	defer um.mu.Unlock()
+
+	user, exists := um.inrBalances[userId]
+	Locked := user.Locked
+	return Locked, exists
+}
+
 func (um *UserManager) GetAllUsers() map[string]User {
 	um.mu.Lock()
 	defer um.mu.Unlock()

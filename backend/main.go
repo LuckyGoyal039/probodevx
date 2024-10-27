@@ -10,6 +10,7 @@ import (
 	"github.com/gofiber/websocket/v2"
 	redis "github.com/probodevx/config"
 	inrBalance "github.com/probodevx/controllers/inrbalance"
+	"github.com/probodevx/controllers/mint"
 	"github.com/probodevx/controllers/orderbook"
 	"github.com/probodevx/controllers/reset"
 	"github.com/probodevx/controllers/stock"
@@ -68,7 +69,7 @@ func main() {
 	app.Post("/order/buy", orderbook.BuyOrder)
 	app.Post("/order/sell", orderbook.SellOrder)
 	// app.Get("/balances/inr", orderbook.GetOrderb
-	// app.Post("/trade/mint", stock.MintStock)
+	app.Post("/trade/mint", mint.MintStock)
 
 	//wss api
 
