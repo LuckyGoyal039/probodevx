@@ -24,11 +24,11 @@ func MintStock(c *fiber.Ctx) error {
 	if err := updateBalance(inputData.Price, inputData.Quantity, inputData.UserId); err != nil {
 		return c.Status(fiber.StatusBadRequest).SendString("insufficient balance")
 	}
-	global.StockManager.AddStockBalancesSymbol(inputData.StockSymbol)
 	stockData, exist := global.StockManager.GetStockBalances(inputData.UserId)
 	if !exist {
-		return c.Status(fiber.StatusBadRequest).SendString("user not found")
+		global.StockManager.AddNewUser(inputData.UserId)
 	}
+	global.StockManager.AddStockBalancesSymbol(inputData.StockSymbol)
 	data := stockData[inputData.StockSymbol]
 	data.No.Quantity = inputData.Quantity
 	data.Yes.Quantity = inputData.Quantity

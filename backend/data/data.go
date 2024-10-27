@@ -197,6 +197,23 @@ func (sm *StockManager) UpdateStockBalanceSymbol(userId string, stockSymbol stri
 	sm.stockBalances[userId] = user
 	return user, nil
 }
+func (sm *StockManager) CheckUser(userId string) (UserStockBalance, bool) {
+	sm.mu.Lock()
+	defer sm.mu.Unlock()
+	if user, exist := sm.stockBalances[userId]; exist {
+		return user, true
+	}
+	return UserStockBalance{}, false
+}
+func (sm *StockManager) AddNewUser(userId string) (UserStockBalance, error) {
+	sm.mu.Lock()
+	defer sm.mu.Unlock()
+	if _, exist := sm.CheckUser(userId); exist {
+		return UserStockBalance{}, fmt.Errorf("user already exist")
+	}
+	sm.stockBalances[userId] = UserStockBalance{}
+	return sm.stockBalances[userId], nil
+}
 
 func (om *OrderBookManager) GetOrderBook(stockSymbol string) (OrderSymbol, bool) {
 
