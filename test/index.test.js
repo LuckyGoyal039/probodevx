@@ -30,16 +30,16 @@ describe("E-to-E-1", () => {
         );
 
         // Step 4: Mint tokens for User5
-        // response = await request(app).post("/trade/mint").send({
-        //     userId: "user5",
-        //     stockSymbol: "AAPL_USD_25_Oct_2024_14_00",
-        //     quantity: 25,
-        //     price: 1000,
-        // });
-        // expect(response.status).toBe(200);
-        // expect(response.body.message).toBe(
-        //     "Minted 25 'yes' and 'no' tokens for user user5, remaining balance is 0",
-        // );
+        response = await request(app).post("/trade/mint").send({
+            userId: "user5",
+            stockSymbol: "AAPL_USD_25_Oct_2024_14_00",
+            quantity: 25,
+            price: 1000,
+        });
+        expect(response.status).toBe(200);
+        expect(response.body.message).toBe(
+            "Minted 25 'yes' and 'no' tokens for user user5, remaining balance is 0",
+        );
 
         // Step 5: User5 sells 10 'no' tokens
         response = await request(app).post("/order/sell").send({

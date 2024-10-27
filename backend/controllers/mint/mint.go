@@ -40,5 +40,7 @@ func MintStock(c *fiber.Ctx) error {
 	if !exist {
 		return c.Status(fiber.StatusBadRequest).SendString("user not found")
 	}
-	return c.Status(fiber.StatusCreated).SendString(fmt.Sprintf("Minted %v 'yes' and 'no' tokens for user %s, remaining balance is %v", inputData.Quantity, inputData.UserId, currentBalance))
+	return c.Status(fiber.StatusOK).JSON(fiber.Map{
+		"message": fmt.Sprintf("Minted %v 'yes' and 'no' tokens for user %s, remaining balance is %v", inputData.Quantity, inputData.UserId, currentBalance),
+	})
 }
