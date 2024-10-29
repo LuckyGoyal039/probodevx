@@ -11,9 +11,9 @@ func GetInrBalance(c *fiber.Ctx) error {
 
 	userId := c.Params("userId")
 	if userId == "" {
-		return c.JSON(global.StockManager.GetAllStockBalances())
+		return c.JSON(global.UserManager.GetAllUsers())
 	}
-	newData, exists := global.StockManager.GetStockBalances(userId)
+	newData, exists := global.UserManager.GetUser(userId)
 
 	if !exists {
 		return c.Status(fiber.StatusNotFound).SendString("User not found")

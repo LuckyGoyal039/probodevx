@@ -8,9 +8,8 @@ import (
 
 func ResetAll(c *fiber.Ctx) error {
 
-	data.ResetAllManager(global.UserManager, global.StockManager, global.OrderBookManager)
-
-	return c.Status(fiber.StatusOK).JSON(fiber.Map{
-		"message": "All data reset successfully",
-	})
+	if ok := data.ResetAllManager(global.UserManager, global.StockManager, global.OrderBookManager); !ok {
+		return c.SendString("something went wrong")
+	}
+	return c.SendString("reset successfully")
 }

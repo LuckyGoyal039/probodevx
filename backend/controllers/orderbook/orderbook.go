@@ -5,7 +5,6 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/utils"
-	"github.com/probodevx/data"
 	"github.com/probodevx/global"
 )
 
@@ -23,17 +22,12 @@ func GetOrderbookSymbol(c *fiber.Ctx) error {
 }
 
 func SellOrder(c *fiber.Ctx) error {
-	// then deduct the quantity and lock the quantity
-	// check for the symbol
-	// check for price if not then create new
-	// manage total
-	// manage orders add user id and quantity in orders
 	type inputFormat struct {
-		UserId      string  `json:"userId"`
-		StockSymbol string  `json:"stockSymbol"`
-		Quantity    int     `json:"quantity"`
-		Price       float32 `json:"price"`
-		StockType   string  `json:"stockType"`
+		UserId      string `json:"userId"`
+		StockSymbol string `json:"stockSymbol"`
+		Quantity    int    `json:"quantity"`
+		Price       int    `json:"price"`
+		StockType   string `json:"stockType"`
 	}
 
 	var inputData inputFormat
@@ -41,80 +35,28 @@ func SellOrder(c *fiber.Ctx) error {
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).SendString("Invalid inputs")
 	}
-	//
-	userStockBalances, userExists := global.StockManager.GetStockBalances(inputData.UserId)
-	if !userExists {
-		return c.Status(fiber.StatusNotFound).SendString("user not found")
+	ok := CheckAndLockStock(inputData.UserId, inputData.StockSymbol, inputData.StockType, inputData.Quantity)
+	if !ok {
+		return c.Status(fiber.StatusNotFound).SendString("insufficient balance")
 	}
 
-	stockBalance, stockExists := userStockBalances[inputData.StockSymbol]
-	if !stockExists {
-		return c.Status(fiber.StatusNotFound).SendString("Symbol not found")
+	canPlace := CheckBuyer(inputData.StockSymbol, inputData.StockType, inputData.Price, inputData.Quantity)
+	switch canPlace {
+	case "fullfill":
+		FullFillSellOrder(inputData.StockSymbol, inputData.Price, inputData.Quantity, inputData.StockType, inputData.UserId)
+		// UnLockBalance(inputData.UserId, inputData.Quantity)
+	case "partial":
+		PlacePartialSellOrder(inputData.StockSymbol, inputData.Price, inputData.Quantity, inputData.StockType, inputData.UserId)
+		// updatedLockedAmount := inputData.Quantity - GetFullFillableQuantity(inputData.StockSymbol, inputData.Price, inputData.Quantity, inputData.StockType)
+		// UnLockBalance(inputData.UserId, updatedLockedAmount)
+	case "none":
+		PlaceSellOrder(inputData.StockSymbol, inputData.Price, inputData.Quantity, inputData.StockType, inputData.UserId)
+		// UnLockBalance(inputData.UserId, inputData.Quantity)
 	}
 
-	getAvailableQuantity := func(stockType string) (int, error) {
-		switch stockType {
-		case "yes":
-			return stockBalance.Yes.Quantity, nil
-		case "no":
-			return stockBalance.No.Quantity, nil
-		default:
-			return 0, fmt.Errorf("invalid stock type")
-		}
-	}
-
-	availableQuantity, err := getAvailableQuantity(inputData.StockType)
-	if err != nil {
-		return c.Status(fiber.StatusBadRequest).SendString(err.Error())
-	}
-
-	if availableQuantity < inputData.Quantity {
-		return c.Status(fiber.StatusBadRequest).SendString("Insufficient balance")
-	}
-	//check
-	switch inputData.StockType {
-	case "yes":
-		stockBalance.Yes.Quantity -= inputData.Quantity
-	case "no":
-		stockBalance.No.Quantity -= inputData.Quantity
-	}
-	global.StockManager.UpdateStockBalanceSymbol(inputData.UserId, inputData.StockSymbol, stockBalance)
-	// data.STOCK_BALANCES[inputData.UserId][inputData.StockSymbol] = stockBalance
-
-	updateOrderBook := func(orderBook data.OrderYesNo) data.OrderYesNo {
-		strPrice := fmt.Sprintf("%.2f", inputData.Price)
-		priceOption, exists := orderBook[strPrice]
-		if !exists {
-			priceOption = data.PriceOptions{
-				Total:  0,
-				Orders: make(data.Order),
-			}
-		}
-
-		priceOption.Total += inputData.Quantity
-
-		orderBook[strPrice] = priceOption
-		return orderBook
-	}
-
-	stockData, exists := global.OrderBookManager.GetOrderBook(inputData.StockSymbol)
-	if !exists {
-		stockData = data.OrderSymbol{
-			Yes: make(data.OrderYesNo),
-			No:  make(data.OrderYesNo),
-		}
-	}
-
-	switch inputData.StockType {
-	case "yes":
-		stockData.Yes = updateOrderBook(stockData.Yes)
-	case "no":
-		stockData.No = updateOrderBook(stockData.No)
-	}
-
-	global.OrderBookManager.UpdateOrderBookSymbol(inputData.StockSymbol, stockData)
-
-	return c.SendString(fmt.Sprintf("Sell order placed for %v '%s' options at price %v.", inputData.Quantity, inputData.StockType, inputData.Price))
+	return c.JSON(fiber.Map{
+		"message": fmt.Sprintf("Sell order placed for %v '%s' options at price %v.", inputData.Quantity, inputData.StockType, inputData.Price),
+	})
 }
 
 type inputFormat struct {
@@ -143,14 +85,24 @@ func BuyOrder(c *fiber.Ctx) error {
 	canPlace := CheckCanPlaceOrder(inputData.StockSymbol, inputData.Price, inputData.Quantity, inputData.StockType)
 
 	switch canPlace {
-	case "fulfill":
+	case "fullfill":
+		//check this out
 		PlaceFullFillOrder(inputData.StockSymbol, inputData.Price, inputData.Quantity, inputData.StockType, inputData.UserId)
-	case "partial":
+		UnLockBalance(inputData.UserId, inputData.Quantity, inputData.Price)
+		// 	balance, _ := global.UserManager.GetUserBalance(inputData.UserId)
+		// 	balance -= inputData.Price * inputData.Quantity
+		// 	global.UserManager.UpdateUserInrBalance(inputData.UserId, balance)
+		// case "partial":
 		PlacePartialOrder(inputData.StockSymbol, inputData.Price, inputData.Quantity, inputData.StockType, inputData.UserId)
+		updatedLockedAmount := inputData.Quantity - GetFullFillableQuantity(inputData.StockSymbol, inputData.Price, inputData.Quantity, inputData.StockType)
+		UnLockBalance(inputData.UserId, updatedLockedAmount, inputData.Price)
+		// balance, _ := global.UserManager.GetUserBalance(inputData.UserId)
+		// balance -= inputData.Price * updatedLockedAmount
+		// global.UserManager.UpdateUserInrBalance(inputData.UserId, balance)
 	case "none":
 		PlaceReverseBuyOrder(inputData.StockSymbol, inputData.Price, inputData.Quantity, inputData.StockType, inputData.UserId)
+		// UnLockBalance(inputData.UserId, inputData.Quantity, inputData.Price)
 	}
-	// send this event to redis queue with symbol
 	if orderbookData, exists := global.OrderBookManager.GetOrderBook(inputData.StockSymbol); exists {
 		err := PushInQueue(inputData.StockSymbol, orderbookData)
 		if err != nil {
