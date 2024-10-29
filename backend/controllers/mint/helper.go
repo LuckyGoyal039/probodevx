@@ -12,7 +12,7 @@ func updateBalance(price int, quantity int, userId string) error {
 		return fmt.Errorf("user not found")
 	}
 	currentBalance := user.Balance
-	requiredBalance := price * quantity * 2
+	requiredBalance := price * quantity
 	if currentBalance < requiredBalance {
 		return fmt.Errorf("insufficient balance")
 	}

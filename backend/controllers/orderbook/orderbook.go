@@ -37,7 +37,7 @@ func SellOrder(c *fiber.Ctx) error {
 	}
 	ok := CheckAndLockStock(inputData.UserId, inputData.StockSymbol, inputData.StockType, inputData.Quantity)
 	if !ok {
-		return c.Status(fiber.StatusNotFound).SendString("insufficient balance")
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"message": "Insufficient stock balance"})
 	}
 
 	canPlace := CheckBuyer(inputData.StockSymbol, inputData.StockType, inputData.Price, inputData.Quantity)
@@ -76,9 +76,9 @@ func BuyOrder(c *fiber.Ctx) error {
 	ok, err := checkAndLockBalance(inputData.UserId, inputData.Price, inputData.Quantity)
 	if !ok {
 		if err.Error() == "User not found" {
-			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"message": err.Error()})
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"message": err.Error()})
 		}
-		return c.Status(fiber.StatusPaymentRequired).JSON(fiber.Map{"message": err.Error()})
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"message": err.Error()})
 	}
 
 	// check it can place order or not

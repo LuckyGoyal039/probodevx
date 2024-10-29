@@ -67,17 +67,6 @@ func CheckCanPlaceOrder(stockSymbol string, price int, quantity int, stockType s
 
 func PlaceFullFillOrder(stockSymbol string, price int, quantity int, stockType string, userId string) error {
 
-	userBalance, exists := global.UserManager.GetUser(userId)
-	if !exists {
-		return errors.New("user not found in balance sheet")
-	}
-
-	totalCost := price * quantity
-	availableBalance := userBalance.Balance
-	if availableBalance < totalCost {
-		return errors.New("insufficient balance")
-	}
-
 	orderData, _ := global.OrderBookManager.GetOrderBook(stockSymbol)
 
 	var stockTypeData data.OrderYesNo
@@ -254,7 +243,7 @@ func checkAndLockBalance(userId string, price int, quantity int) (bool, error) {
 	totalCost := price * quantity
 
 	if user.Balance < totalCost {
-		return false, fmt.Errorf("insufficient balance")
+		return false, fmt.Errorf("Insufficient INR balance")
 	}
 	leftBalance := user.Balance - totalCost
 	lockedAmount := user.Locked + totalCost
