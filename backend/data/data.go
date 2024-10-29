@@ -136,6 +136,29 @@ func (um *UserManager) UpdateUserInrBalance(userId string, balance int) (*User, 
 	um.mu.Unlock()
 	return user, nil
 }
+func (um *UserManager) DebitBalance(userId string, amount int) (*User, error) {
+	user, exists := um.inrBalances[userId]
+	if !exists {
+		return nil, fmt.Errorf("user not found")
+	}
+	user.Balance -= amount
+	um.mu.Lock()
+	um.inrBalances[userId] = user
+	um.mu.Unlock()
+	return user, nil
+}
+func (um *UserManager) CreditBalance(userId string, amount int) (*User, error) {
+	user, exists := um.inrBalances[userId]
+	if !exists {
+		return nil, fmt.Errorf("user not found")
+	}
+	user.Balance += amount
+	um.mu.Lock()
+	um.inrBalances[userId] = user
+	um.mu.Unlock()
+	return user, nil
+}
+
 func (um *UserManager) UpdateUserInrLock(userId string, lock int) (*User, error) {
 	user, exists := um.inrBalances[userId]
 	if !exists {
@@ -574,6 +597,17 @@ func (om *OrderBookManager) UpdateSellOrder(userId string, stockSymbol string, s
 	}
 
 	om.orderBook[stockSymbol] = orderBook
+}
+func (om *OrderBookManager) GetPriceMap(stockSymbol, stockType, price string) PriceOptions {
+	var priceData PriceOptions
+	orderbook, _ := om.orderBook[stockSymbol]
+	if stockType == "yes" {
+		priceData = orderbook.Yes[price]
+	} else if stockType == "no" {
+		priceData = orderbook.No[price]
+
+	}
+	return priceData
 }
 
 func ResetAllManager(um *UserManager, sm *StockManager, om *OrderBookManager) bool {

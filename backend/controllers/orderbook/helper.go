@@ -253,6 +253,14 @@ func checkAndLockBalance(userId string, price int, quantity int) (bool, error) {
 
 	return true, nil
 }
+func checkValidBalance(userId string, price int, quantity int) bool {
+	balance, exists := global.UserManager.GetUserBalance(userId)
+	if !exists {
+		return false
+	}
+	totalCost := price * quantity
+	return balance >= totalCost
+}
 func UnLockBalance(userId string, quantity, price int) (bool, error) {
 	user, exists := global.UserManager.GetUser(userId)
 	if !exists {
@@ -502,4 +510,49 @@ func PlaceSellOrder(stockSymbol string, price, quantity int, stockType, userId s
 	}
 	global.OrderBookManager.AddOrderbookPrice(stockSymbol, stockType, price)
 	global.OrderBookManager.UpdateSellOrder(userId, stockSymbol, stockType, price, quantity)
+}
+
+func GetValidPrices(stockSymbol string, stockType string, price int) []int {
+	orderData, _ := global.OrderBookManager.GetOrderBook(stockSymbol)
+
+	var stockTypeData data.OrderYesNo
+	if stockType == "yes" {
+		stockTypeData = orderData.Yes
+	} else if stockType == "no" {
+		stockTypeData = orderData.No
+	}
+	var prices []int
+	for priceStr := range stockTypeData {
+		currPrice64, err := strconv.ParseInt(priceStr, 10, 64)
+		if err != nil {
+			continue
+		}
+		currPrice := int(currPrice64)
+		if currPrice <= price {
+			prices = append(prices, currPrice)
+		}
+	}
+	sort.Ints(prices)
+	return prices
+}
+
+func AddStocksToBuyer(userId, stockSymbol, stockType string, quantity int) {
+	global.StockManager.AddNewUser(userId)
+	buyerBalance, exists := global.StockManager.GetStockBalances(userId)
+	if !exists {
+		buyerBalance = make(data.UserStockBalance)
+	}
+	buyerStockOption, exists := buyerBalance[stockSymbol]
+	if !exists {
+		buyerStockOption = data.StockOption{
+			Yes: data.YesNo{Quantity: 0, Locked: 0},
+			No:  data.YesNo{Quantity: 0, Locked: 0},
+		}
+	}
+	if stockType == "yes" {
+		buyerStockOption.Yes.Quantity += quantity
+	} else {
+		buyerStockOption.No.Quantity += quantity
+	}
+	global.StockManager.UpdateStockBalanceSymbol(userId, stockSymbol, buyerStockOption)
 }
