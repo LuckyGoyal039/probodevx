@@ -53,8 +53,8 @@ func CreateStock(c *fiber.Ctx) error {
 // 	type inputFormat struct {
 // 		UserId      string  `json:"userId"`
 // 		StockSymbol string  `json:"stockSymbol"`
-// 		Quantity    float32 `json:"quantity"`
-// 		Price       float32 `json:"price"`
+// 		Quantity    int `json:"quantity"`
+// 		Price       int `json:"price"`
 // 	}
 
 // 	var incomingData inputFormat

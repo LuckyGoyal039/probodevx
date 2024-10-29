@@ -23,7 +23,7 @@ func CheckCanPlaceOrder(stockSymbol string, price int, quantity int, stockType s
 	var stockTypeData data.OrderYesNo
 	if stockType == "yes" {
 		stockTypeData = orderData.Yes
-	} else if stockSymbol == "no" {
+	} else if stockType == "no" {
 		stockTypeData = orderData.No
 	} else {
 		return "none"
@@ -33,9 +33,10 @@ func CheckCanPlaceOrder(stockSymbol string, price int, quantity int, stockType s
 	hasValidPrice := false
 
 	for priceStr, priceData := range stockTypeData {
-
+		fmt.Printf("Original priceStr before ParseInt: %v\n", priceStr)
 		currentPrice64, err := strconv.ParseInt(priceStr, 10, 64)
 		if err != nil {
+			fmt.Printf("Error parsing priceStr: %v\n", err)
 			continue
 		}
 		currentPrice := int(currentPrice64)
@@ -77,21 +78,16 @@ func PlaceFullFillOrder(stockSymbol string, price int, quantity int, stockType s
 		return errors.New("insufficient balance")
 	}
 
-	orderData, exists := global.OrderBookManager.GetOrderBook(stockSymbol)
-	if !exists {
-		return errors.New("stock symbol not found")
-	}
+	orderData, _ := global.OrderBookManager.GetOrderBook(stockSymbol)
 
 	var stockTypeData data.OrderYesNo
 	if stockType == "yes" {
 		stockTypeData = orderData.Yes
-	} else if stockSymbol == "no" {
+	} else if stockType == "no" {
 		stockTypeData = orderData.No
 	}
 
 	remainingQuantity := quantity
-	costIncurred := 0
-
 	var prices []int
 	for priceStr := range stockTypeData {
 		currPrice64, err := strconv.ParseInt(priceStr, 10, 64)
@@ -118,42 +114,22 @@ func PlaceFullFillOrder(stockSymbol string, price int, quantity int, stockType s
 				break
 			}
 
-			// Skip if order is reversed
-			// if orderInfo.reverse {
-			// 	continue
-			// }
-
 			availableQuantity := orderInfo.Quantity
 			quantityToTake := min(remainingQuantity, availableQuantity)
 
 			if quantityToTake > 0 {
-				// Update seller's stock balance
-				sellerBalance, exists := global.StockManager.GetStockBalances(sellerId)
-				if !exists {
-					sellerBalance = make(data.UserStockBalance)
-				}
-				stockOption, exists := sellerBalance[stockSymbol]
-				if !exists {
-					stockOption = data.StockOption{
-						Yes: data.YesNo{Quantity: 0, Locked: 0},
-						No:  data.YesNo{Quantity: 0, Locked: 0},
-					}
-				}
-				if stockType == "yes" {
-					stockOption.Yes.Locked -= quantityToTake
-				} else {
-					stockOption.No.Locked -= quantityToTake
-				}
-				// sellerBalance[stockSymbol] = stockOption
-				global.StockManager.UpdateStockBalanceSymbol(sellerId, stockSymbol, stockOption)
-				// data.STOCK_BALANCES[sellerId] = sellerBalance
+				//remove lock of seller in stock_balances
+				lockedQty, _ := global.StockManager.GetLockedStocks(sellerId, stockSymbol, stockType)
+				lockedQty -= quantityToTake
+				global.StockManager.SetStocksLock(sellerId, stockSymbol, stockType, lockedQty)
 
 				// Update buyer's stock balance
+				// check it can be optimized
+				global.StockManager.AddNewUser(userId)
 				buyerBalance, exists := global.StockManager.GetStockBalances(userId)
 				if !exists {
 					buyerBalance = make(data.UserStockBalance)
 				}
-
 				buyerStockOption, exists := buyerBalance[stockSymbol]
 				if !exists {
 					buyerStockOption = data.StockOption{
@@ -161,13 +137,11 @@ func PlaceFullFillOrder(stockSymbol string, price int, quantity int, stockType s
 						No:  data.YesNo{Quantity: 0, Locked: 0},
 					}
 				}
-
 				if stockType == "yes" {
 					buyerStockOption.Yes.Quantity += quantityToTake
 				} else {
 					buyerStockOption.No.Quantity += quantityToTake
 				}
-				// buyerBalance[stockSymbol] = buyerStockOption
 				global.StockManager.UpdateStockBalanceSymbol(userId, stockSymbol, buyerStockOption)
 
 				priceData.Total -= quantityToTake
@@ -177,20 +151,10 @@ func PlaceFullFillOrder(stockSymbol string, price int, quantity int, stockType s
 				}
 
 				remainingQuantity -= quantityToTake
-				costIncurred += quantityToTake * currentPrice
 
-				buyerInrBalance, exists := global.UserManager.GetUser(userId)
-				sellerInrBalance, exists := global.UserManager.GetUser(sellerId)
-				if !exists {
-					panic("user not found")
-				}
-
-				// Update balances
-				totalBuyerBalance := buyerInrBalance.Balance - costIncurred
-				totalSellerBalance := sellerInrBalance.Balance + costIncurred
-
-				// Save back to map
-				global.UserManager.UpdateUserInrBalance(userId, totalBuyerBalance)
+				//update seller inr_balance
+				value, _ := global.UserManager.GetUserBalance(sellerId)
+				totalSellerBalance := value + quantityToTake*currentPrice
 				global.UserManager.UpdateUserInrBalance(sellerId, totalSellerBalance)
 			}
 		}
@@ -200,11 +164,6 @@ func PlaceFullFillOrder(stockSymbol string, price int, quantity int, stockType s
 			delete(stockTypeData, priceStr)
 		}
 	}
-
-	if remainingQuantity > 0 {
-		return errors.New("could not fulfill entire order")
-	}
-
 	return nil
 }
 
@@ -305,6 +264,16 @@ func checkAndLockBalance(userId string, price int, quantity int) (bool, error) {
 
 	return true, nil
 }
+func UnLockBalance(userId string, quantity, price int) (bool, error) {
+	user, exists := global.UserManager.GetUser(userId)
+	if !exists {
+		return false, fmt.Errorf("user not found")
+	}
+
+	lockedAmount := max(0, user.Locked-quantity*price)
+	global.UserManager.UpdateUserInrLock(userId, lockedAmount)
+	return true, nil
+}
 
 func PushInQueue(stockSymbol string, orderbookData data.OrderSymbol) error {
 
@@ -330,4 +299,218 @@ func PushInQueue(stockSymbol string, orderbookData data.OrderSymbol) error {
 	}
 
 	return nil
+}
+
+func CheckAndLockStock(userId string, stockSymbol string, stockType string, quantity int) bool {
+	exist := global.StockManager.CheckUser(userId)
+	if !exist {
+		return false
+	}
+	availableQuantity, err := global.StockManager.GetQuantityStocks(userId, stockSymbol, stockType)
+	if err != nil {
+		return false
+	}
+	if availableQuantity < quantity {
+		return false
+	}
+	//reduce qty also
+
+	updatedQty := availableQuantity - quantity
+	if err := global.StockManager.SetStocksQuantity(userId, stockSymbol, stockType, updatedQty); err != nil {
+		return false
+	}
+	if err := global.StockManager.SetStocksLock(userId, stockSymbol, stockType, quantity); err != nil {
+		return false
+	}
+	return true
+}
+
+func CheckBuyer(stockSymbol string, stockType string, price int, quantity int) string {
+	orderData, exists := global.OrderBookManager.GetOrderBook(stockSymbol)
+	if !exists {
+		return "none"
+	}
+
+	var stockTypeData data.OrderYesNo
+	if stockType == "yes" {
+		stockTypeData = orderData.No
+	} else if stockType == "no" {
+		stockTypeData = orderData.Yes
+	} else {
+		return "none"
+	}
+
+	var availableQuantity int = 0
+	hasValidPrice := false
+
+	for priceStr, priceData := range stockTypeData {
+		fmt.Printf("Original priceStr before ParseInt: %v\n", priceStr)
+		currentPrice64, err := strconv.ParseInt(priceStr, 10, 64)
+		if err != nil {
+			fmt.Printf("Error parsing priceStr: %v\n", err)
+			continue
+		}
+		currentPrice := int(currentPrice64)
+
+		if currentPrice >= price {
+			for _, orders := range priceData.Orders {
+				if orders.Reverse {
+					hasValidPrice = true
+					total := orders.Quantity
+					if total > 0 {
+						availableQuantity += total
+					}
+				}
+			}
+		}
+	}
+
+	if !hasValidPrice {
+		return "none"
+	}
+
+	if availableQuantity >= quantity {
+		return "fullfill"
+	}
+
+	if availableQuantity > 0 {
+		return "partial"
+	}
+	return "none"
+}
+
+func FullFillSellOrder(stockSymbol string, price, quantity int, stockType, userId string) error {
+	orderData, _ := global.OrderBookManager.GetOrderBook(stockSymbol)
+	reverseStockType := map[string]string{"yes": "no", "no": "yes"}[stockType]
+
+	stockTypeData := orderData.No
+	if reverseStockType == "yes" {
+		stockTypeData = orderData.Yes
+	}
+
+	prices := make([]int, 0, len(stockTypeData))
+	for priceStr, priceData := range stockTypeData {
+		currPrice, err := strconv.Atoi(priceStr)
+		if err != nil || currPrice > price {
+			continue
+		}
+		for _, order := range priceData.Orders {
+			if order.Reverse {
+				prices = append(prices, currPrice)
+				break
+			}
+		}
+	}
+	sort.Sort(sort.Reverse(sort.IntSlice(prices)))
+
+	remainingQuantity := quantity
+	for _, currentPrice := range prices {
+		if remainingQuantity <= 0 {
+			break
+		}
+
+		priceStr := strconv.Itoa(currentPrice)
+		priceData := stockTypeData[priceStr]
+
+		for sellerId, orderInfo := range priceData.Orders {
+			if remainingQuantity <= 0 || !orderInfo.Reverse {
+				break
+			}
+
+			quantityToTake := min(remainingQuantity, orderInfo.Quantity)
+			remainingQuantity -= quantityToTake
+			restQty := max(0, orderInfo.Quantity-quantityToTake)
+			global.StockManager.SetStocksQuantity(sellerId, stockSymbol, reverseStockType, restQty)
+
+			currentLock, _ := global.UserManager.GetUserLocked(sellerId)
+			global.UserManager.UpdateUserInrLock(sellerId, currentLock-restQty*currentPrice)
+
+			if restQty == 0 {
+				global.OrderBookManager.RemoveUserFromOrder(sellerId, stockSymbol, stockType, currentPrice)
+			} else {
+				global.OrderBookManager.UpdateStockQtyFromOrder(sellerId, stockSymbol, stockType, currentPrice, restQty)
+			}
+		}
+
+		if len(priceData.Orders) == 0 {
+			delete(stockTypeData, priceStr)
+		}
+	}
+	return nil
+}
+
+func PlacePartialSellOrder(stockSymbol string, price int, quantity int, stockType string, userId string) {
+	// Calculate fulfillable quantity
+	fulfillableQuantity := calculateFulfillableQuantity(stockSymbol, price, quantity, stockType)
+	remainingQuantity := quantity - fulfillableQuantity
+
+	// Fulfill as much of the order as possible
+	if fulfillableQuantity > 0 {
+		err := FullFillSellOrder(stockSymbol, price, fulfillableQuantity, stockType, userId)
+		if err != nil {
+			// Handle error if needed
+			return
+		}
+	}
+
+	// Place remaining quantity as a new sell order
+	if remainingQuantity > 0 {
+		PlaceSellOrder(stockSymbol, price, remainingQuantity, stockType, userId)
+	}
+}
+
+func calculateFulfillableQuantity(stockSymbol string, price int, quantity int, stockType string) int {
+	orderData, _ := global.OrderBookManager.GetOrderBook(stockSymbol)
+	reverseStockType := map[string]string{"yes": "no", "no": "yes"}[stockType]
+
+	stockTypeData := orderData.No
+	if reverseStockType == "yes" {
+		stockTypeData = orderData.Yes
+	}
+
+	prices := make([]int, 0, len(stockTypeData))
+	for priceStr, priceData := range stockTypeData {
+		currPrice, err := strconv.Atoi(priceStr)
+		if err != nil || currPrice > price {
+			continue
+		}
+		for _, order := range priceData.Orders {
+			if order.Reverse {
+				prices = append(prices, currPrice)
+				break
+			}
+		}
+	}
+	sort.Sort(sort.Reverse(sort.IntSlice(prices)))
+
+	remainingQuantity := quantity
+	fulfillableQuantity := 0
+
+	for _, currentPrice := range prices {
+		if remainingQuantity <= 0 {
+			break
+		}
+
+		priceStr := strconv.Itoa(currentPrice)
+		priceData := stockTypeData[priceStr]
+
+		for _, orderInfo := range priceData.Orders {
+			if remainingQuantity <= 0 || !orderInfo.Reverse {
+				break
+			}
+
+			quantityToTake := min(remainingQuantity, orderInfo.Quantity)
+			remainingQuantity -= quantityToTake
+			fulfillableQuantity += quantityToTake
+		}
+	}
+	return fulfillableQuantity
+}
+
+func PlaceSellOrder(stockSymbol string, price, quantity int, stockType, userId string) {
+	if _, exist := global.OrderBookManager.GetOrderBook(stockSymbol); !exist {
+		global.OrderBookManager.AddOrderBookSymbol(stockSymbol)
+	}
+	global.OrderBookManager.AddOrderbookPrice(stockSymbol, stockType, price)
+	global.OrderBookManager.UpdateSellOrder(userId, stockSymbol, stockType, price, quantity)
 }
