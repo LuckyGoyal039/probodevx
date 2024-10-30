@@ -6,34 +6,20 @@ import (
 	"os"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/websocket/v2"
 	redis "github.com/probodevx/config"
-	inrBalance "github.com/probodevx/controllers/inrbalance"
-	"github.com/probodevx/controllers/mint"
-	"github.com/probodevx/controllers/orderbook"
-	"github.com/probodevx/controllers/reset"
-	"github.com/probodevx/controllers/stock"
-	"github.com/probodevx/routes"
+	"github.com/probodevx/controllers/wss"
 )
 
 func main() {
-
-	app := fiber.New(fiber.Config{
-		Immutable: true,
-		Prefork:   false,
-	})
 	wsApp := fiber.New(fiber.Config{
 		Immutable: true,
 		Prefork:   false,
 	})
 
-	PORT := os.Getenv("PORT")
 	WSPORT := os.Getenv("WSPORT")
 	if WSPORT == "" {
 		WSPORT = "8080"
-	}
-
-	if PORT == "" {
-		PORT = "8000"
 	}
 
 	redisHost := os.Getenv("REDIS_HOST")
@@ -52,8 +38,14 @@ func main() {
 		log.Fatalf("Redis connection error: %v", err)
 	}
 
-	// main server apis
+	wsApp.Use("/ws", func(c *fiber.Ctx) error {
+		if websocket.IsWebSocketUpgrade(c) {
+			return c.Next()
+		}
+		return fiber.ErrUpgradeRequired
+	})
+	wsApp.Get("/ws/:event", wss.WebSocketHandler)
 
-	app.Listen(fmt.Sprintf(":%s", PORT))
+	wsApp.Listen(fmt.Sprintf(":%s", WSPORT))
 
 }

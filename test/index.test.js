@@ -438,6 +438,19 @@ describe("E-to-E-3", () => {
             locked: 0,
         });
 
+        // their should be min here before sell
+        response = await request(app).post("/trade/mint").send({
+            userId: "user1",
+            stockSymbol: "ETH_USD_15_Oct_2024_12_00",
+            quantity: 200,
+            price: 1500,
+        });
+        
+        expect(response.status).toBe(200);
+        expect(response.body.message).toBe(
+            "Minted 200 'yes' and 'no' tokens for user user1, remaining balance is 200000",
+        );
+
         // Step 4: User1 places sell orders at two different prices
         await request(app).post("/order/sell").send({
             userId: "user1",
@@ -484,8 +497,8 @@ describe("E-to-E-3", () => {
         response = await request(app).get("/orderbook");
         expect(response.status).toBe(200);
         expect(response.body["ETH_USD_15_Oct_2024_12_00"]["yes"]).toEqual({
-            1400: { total: 100, orders: { user1: 100 } },
-            1500: { total: 100, orders: { user1: 100 } },
+            1400: { total: 100, orders: { user1: { quantity: 100, reverse: false } } },
+            1500: { total: 100, orders: { user1: { quantity: 100, reverse: false } } },
         });
 
         response = await request(app).get("/balances/stock");

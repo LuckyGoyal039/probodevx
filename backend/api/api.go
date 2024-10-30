@@ -16,25 +16,10 @@ import (
 )
 
 func main() {
-
 	app := fiber.New(fiber.Config{
 		Immutable: true,
 		Prefork:   false,
 	})
-	wsApp := fiber.New(fiber.Config{
-		Immutable: true,
-		Prefork:   false,
-	})
-
-	PORT := os.Getenv("PORT")
-	WSPORT := os.Getenv("WSPORT")
-	if WSPORT == "" {
-		WSPORT = "8080"
-	}
-
-	if PORT == "" {
-		PORT = "8000"
-	}
 
 	redisHost := os.Getenv("REDIS_HOST")
 	if redisHost == "" {
@@ -52,8 +37,21 @@ func main() {
 		log.Fatalf("Redis connection error: %v", err)
 	}
 
-	// main server apis
+	API_PORT := os.Getenv("API_PORT")
+	if API_PORT == "" {
+		API_PORT = "8001"
+	}
 
-	app.Listen(fmt.Sprintf(":%s", PORT))
-
+	routes.UserRoutes(app)
+	app.Post("/onramp/inr", inrBalance.AddUserBalance)
+	app.Post("/symbol/create/:stockSymbol", stock.CreateStock)
+	app.Post("/reset", reset.ResetAll)
+	app.Get("/orderbook/:stockSymbol?", orderbook.GetOrderbookSymbol)
+	app.Get("/balances/inr/:userId?", inrBalance.GetInrBalance)
+	app.Get("/balances/stock/:userId?", stock.GetStockBalances)
+	app.Post("/order/buy", orderbook.BuyOrder)
+	app.Post("/order/sell", orderbook.SellOrder)
+	// app.Get("/balances/inr", orderbook.GetOrderb
+	app.Post("/trade/mint", mint.MintStock)
+	app.Listen(fmt.Sprintf(":%s", API_PORT))
 }
