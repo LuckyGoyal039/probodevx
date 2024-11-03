@@ -170,10 +170,34 @@ func (um *UserManager) UpdateUserInrLock(userId string, lock int) (*User, error)
 	um.mu.Unlock()
 	return user, nil
 }
+func (um *UserManager) ReduceInrLock(userId string, amount int) (*User, error) {
+	user, exist := um.inrBalances[userId]
+	if !exist {
+		return nil, fmt.Errorf("user not found")
+	}
+	if amount > user.Locked {
+		return nil, fmt.Errorf("amount cannot be more than lock amount")
+	}
+	newLock := user.Locked - amount
+	um.mu.Lock()
+	um.inrBalances[userId].Locked = newLock
+	um.mu.Unlock()
+	return um.inrBalances[userId], nil
+}
 
 func (sm *StockManager) GetStockBalances(userId string) (UserStockBalance, bool) {
 	balances, exists := sm.stockBalances[userId]
 	return balances, exists
+}
+func (sm *StockManager) GetStockSymbol(userId, stockSymbol, stockType string) (YesNo, bool) {
+	balances, exists := sm.stockBalances[userId][stockSymbol]
+	var stockTypeOptions YesNo
+	if stockType == "yes" {
+		stockTypeOptions = balances.Yes
+	} else {
+		stockTypeOptions = balances.No
+	}
+	return stockTypeOptions, exists
 }
 func (sm *StockManager) GetAllStockBalances() map[string]UserStockBalance {
 	result := make(map[string]UserStockBalance)
@@ -416,50 +440,7 @@ func (om *OrderBookManager) CheckStockSymbol(stockSymbol string) bool {
 	}
 	return true
 }
-func (om *OrderBookManager) RemoveUserFromOrder(userId string, stockSymbol string, stockType string, price int) {
-	orderBook, exists := om.orderBook[stockSymbol]
-	if !exists {
-		return
-	}
 
-	var priceMap OrderYesNo
-	switch stockType {
-	case "yes":
-		priceMap = orderBook.Yes
-	case "no":
-		priceMap = orderBook.No
-	default:
-		return
-	}
-
-	priceKey := fmt.Sprintf("%d", price)
-	priceLevel, priceExists := priceMap[priceKey]
-	if !priceExists {
-		return
-	}
-
-	userOrder, userExists := priceLevel.Orders[userId]
-	if !userExists {
-		return
-	}
-
-	priceLevel.Total -= userOrder.Quantity
-	delete(priceLevel.Orders, userId)
-
-	if len(priceLevel.Orders) == 0 || priceLevel.Total <= 0 {
-		delete(priceMap, priceKey)
-	} else {
-		priceMap[priceKey] = priceLevel
-	}
-
-	if stockType == "yes" {
-		orderBook.Yes = priceMap
-	} else {
-		orderBook.No = priceMap
-	}
-
-	om.orderBook[stockSymbol] = orderBook
-}
 func (om *OrderBookManager) UpdateStockQtyFromOrder(userId string, stockSymbol string, stockType string, price, quantity int) {
 	orderBook, exists := om.orderBook[stockSymbol]
 	if !exists {
@@ -610,6 +591,143 @@ func (om *OrderBookManager) GetPriceMap(stockSymbol, stockType, price string) Pr
 	return priceData
 }
 
+func (om *OrderBookManager) IncreaseTotal(stockSymbol, stockType, price string, qty int) {
+	if stockType == "yes" {
+		priceOptions := om.orderBook[stockSymbol].Yes[price]
+		priceOptions.Total += qty
+		om.mu.Lock()
+		om.orderBook[stockSymbol].Yes[price] = priceOptions
+		om.mu.Unlock()
+	} else {
+		priceOptions := om.orderBook[stockSymbol].No[price]
+		priceOptions.Total -= qty
+		om.mu.Lock()
+		om.orderBook[stockSymbol].No[price] = priceOptions
+		om.mu.Unlock()
+	}
+}
+func (om *OrderBookManager) DecreaseTotal(stockSymbol, stockType, price string, qty int) {
+	if stockType == "yes" {
+		priceOptions := om.orderBook[stockSymbol].Yes[price]
+		priceOptions.Total -= qty
+		om.mu.Lock()
+		om.orderBook[stockSymbol].Yes[price] = priceOptions
+		om.mu.Unlock()
+	} else {
+		priceOptions := om.orderBook[stockSymbol].No[price]
+		priceOptions.Total -= qty
+		om.mu.Lock()
+		om.orderBook[stockSymbol].No[price] = priceOptions
+		om.mu.Unlock()
+	}
+}
+
+// check is these three functions are doing same thing
+func (om *OrderBookManager) DecreaseUserQuantity(stockSymbol, stockType, price, userID string, qty int) {
+	om.mu.Lock()
+	defer om.mu.Unlock()
+
+	// Access the correct orders map based on stock type
+	var orders Order
+	if stockType == "yes" {
+		orders = om.orderBook[stockSymbol].Yes[price].Orders
+	} else {
+		orders = om.orderBook[stockSymbol].No[price].Orders
+	}
+
+	// Check if the user exists in the orders map
+	if orderOptions, exists := orders[userID]; exists {
+		// Decrease the quantity
+		orderOptions.Quantity -= qty
+
+		// If the quantity is zero or less, remove the user from the orders map
+		if orderOptions.Quantity <= 0 {
+			delete(orders, userID)
+		} else {
+			// Otherwise, update the user's order with the new quantity
+			orders[userID] = orderOptions
+		}
+	}
+
+	// Reassign the modified orders map back to the struct
+	if stockType == "yes" {
+		priceOptions := om.orderBook[stockSymbol].Yes[price]
+		priceOptions.Orders = orders
+		om.orderBook[stockSymbol].Yes[price] = priceOptions
+	} else {
+		priceOptions := om.orderBook[stockSymbol].No[price]
+		priceOptions.Orders = orders
+		om.orderBook[stockSymbol].No[price] = priceOptions
+	}
+}
+func (om *OrderBookManager) RemoveUserOrder(stockSymbol, stockType, price, userID string) {
+	om.mu.Lock()
+	defer om.mu.Unlock()
+
+	if stockType == "yes" {
+		priceOptions := om.orderBook[stockSymbol].Yes[price]
+		delete(priceOptions.Orders, userID)
+		om.orderBook[stockSymbol].Yes[price] = priceOptions
+	} else {
+		priceOptions := om.orderBook[stockSymbol].No[price]
+		delete(priceOptions.Orders, userID)
+		om.orderBook[stockSymbol].No[price] = priceOptions
+	}
+}
+func (om *OrderBookManager) RemoveUserFromOrder(userId string, stockSymbol string, stockType string, price int) {
+	orderBook, exists := om.orderBook[stockSymbol]
+	if !exists {
+		return
+	}
+
+	var priceMap OrderYesNo
+	switch stockType {
+	case "yes":
+		priceMap = orderBook.Yes
+	case "no":
+		priceMap = orderBook.No
+	default:
+		return
+	}
+
+	priceKey := fmt.Sprintf("%d", price)
+	priceLevel, priceExists := priceMap[priceKey]
+	if !priceExists {
+		return
+	}
+
+	userOrder, userExists := priceLevel.Orders[userId]
+	if !userExists {
+		return
+	}
+
+	priceLevel.Total -= userOrder.Quantity
+	delete(priceLevel.Orders, userId)
+
+	if len(priceLevel.Orders) == 0 || priceLevel.Total <= 0 {
+		delete(priceMap, priceKey)
+	} else {
+		priceMap[priceKey] = priceLevel
+	}
+
+	if stockType == "yes" {
+		orderBook.Yes = priceMap
+	} else {
+		orderBook.No = priceMap
+	}
+
+	om.orderBook[stockSymbol] = orderBook
+}
+func (om *OrderBookManager) RemovePrice(stockSymbol, stockType, price string) {
+	om.mu.Lock()
+	defer om.mu.Unlock()
+
+	if stockType == "yes" {
+		delete(om.orderBook[stockSymbol].Yes, price)
+	} else {
+		delete(om.orderBook[stockSymbol].No, price)
+	}
+}
 func ResetAllManager(um *UserManager, sm *StockManager, om *OrderBookManager) bool {
 	um.mu.Lock()
 	um.inrBalances = make(map[string]*User)

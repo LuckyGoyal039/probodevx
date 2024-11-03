@@ -5,12 +5,11 @@ import (
 	"strconv"
 
 	"github.com/gofiber/fiber/v2"
-	"github.com/gofiber/fiber/v2/utils"
 	"github.com/probodevx/global"
 )
 
 func GetOrderbookSymbol(c *fiber.Ctx) error {
-	stockSymbol := utils.CopyString(c.Params("stockSymbol"))
+	stockSymbol := c.Params("stockSymbol")
 	if stockSymbol == "" {
 		return c.JSON(global.OrderBookManager.GetAllOrderBook())
 	}
@@ -36,23 +35,76 @@ func SellOrder(c *fiber.Ctx) error {
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).SendString("Invalid inputs")
 	}
-	ok := CheckAndLockStock(inputData.UserId, inputData.StockSymbol, inputData.StockType, inputData.Quantity)
+	ok := checkValidStockBalance(inputData.UserId, inputData.StockSymbol, inputData.StockType, inputData.Quantity)
 	if !ok {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"message": "Insufficient stock balance"})
 	}
+	var reverseStockType string
+	if inputData.StockType == "yes" {
+		reverseStockType = "no"
+	} else {
+		reverseStockType = "yes"
+	}
+	reversePrice := 1000 - inputData.Price
+	priceList := GetValidSellPrices(inputData.StockSymbol, reverseStockType, reversePrice)
+	remainingQuantity := inputData.Quantity
+	for _, currentPrice := range priceList {
+		priceStr := strconv.FormatInt(int64(currentPrice), 10)
+		priceData := global.OrderBookManager.GetPriceMap(inputData.StockSymbol, reverseStockType, priceStr)
 
-	canPlace := CheckBuyer(inputData.StockSymbol, inputData.StockType, inputData.Price, inputData.Quantity)
-	switch canPlace {
-	case "fullfill":
-		FullFillSellOrder(inputData.StockSymbol, inputData.Price, inputData.Quantity, inputData.StockType, inputData.UserId)
-		// UnLockBalance(inputData.UserId, inputData.Quantity)
-	case "partial":
-		PlacePartialSellOrder(inputData.StockSymbol, inputData.Price, inputData.Quantity, inputData.StockType, inputData.UserId)
-		// updatedLockedAmount := inputData.Quantity - GetFullFillableQuantity(inputData.StockSymbol, inputData.Price, inputData.Quantity, inputData.StockType)
-		// UnLockBalance(inputData.UserId, updatedLockedAmount)
-	case "none":
+		for sellerId, orderInfo := range priceData.Orders {
+			if remainingQuantity <= 0 {
+				break
+			}
+			availableQuantity := orderInfo.Quantity
+			quantityToTake := min(remainingQuantity, availableQuantity)
+
+			if quantityToTake > 0 {
+
+				amount := quantityToTake * inputData.Price
+				global.UserManager.CreditBalance(inputData.UserId, amount)
+				global.UserManager.ReduceInrLock(sellerId, amount) // remove lock from the buyer (reverse order)
+
+				//remove lock of seller in stock_balances
+				// lockedQty, _ := global.StockManager.GetLockedStocks(inputData.UserId, inputData.StockSymbol, inputData.StockType)
+				// lockedQty -= quantityToTake
+				// global.StockManager.SetStocksLock(inputData.UserId, inputData.StockSymbol, inputData.StockType, lockedQty)
+
+				// Update buyer's stock balance
+				// AddStocksToBuyer(inputData.UserId, inputData.StockSymbol, inputData.StockType, inputData.Quantity)
+				if exists := global.StockManager.CheckUser(sellerId); !exists {
+					global.StockManager.AddNewUser(sellerId)
+					global.StockManager.AddStockBalancesSymbol(inputData.StockSymbol)
+				}
+
+				stockQty, _ := global.StockManager.GetQuantityStocks(sellerId, inputData.StockSymbol, inputData.StockType)
+				stockQty += quantityToTake
+				global.StockManager.SetStocksQuantity(sellerId, inputData.StockSymbol, inputData.StockType, stockQty)
+				sellerStockQty, _ := global.StockManager.GetQuantityStocks(inputData.UserId, inputData.StockSymbol, inputData.StockType)
+				sellerStockQty -= quantityToTake
+				global.StockManager.SetStocksQuantity(inputData.UserId, inputData.StockSymbol, inputData.StockType, sellerStockQty)
+
+				// update total and quantity of seller
+				// priceData.Total -= quantityToTake
+				// orderInfo.Quantity -= quantityToTake
+				// if orderInfo.Quantity == 0 {
+				// 	delete(priceData.Orders, sellerId)
+				// }
+
+				global.OrderBookManager.DecreaseUserQuantity(inputData.StockSymbol, reverseStockType, priceStr, sellerId, quantityToTake)
+				global.OrderBookManager.DecreaseTotal(inputData.StockSymbol, reverseStockType, priceStr, quantityToTake)
+				remainingQuantity -= quantityToTake
+				// remainingQuantity -= quantityToTake
+			}
+		}
+		priceData = global.OrderBookManager.GetPriceMap(inputData.StockSymbol, reverseStockType, priceStr)
+		if priceData.Total <= 0 {
+			global.OrderBookManager.RemovePrice(inputData.StockSymbol, inputData.StockType, priceStr)
+		}
+
+	}
+	if remainingQuantity > 0 {
 		PlaceSellOrder(inputData.StockSymbol, inputData.Price, inputData.Quantity, inputData.StockType, inputData.UserId)
-		// UnLockBalance(inputData.UserId, inputData.Quantity)
 	}
 
 	return c.JSON(fiber.Map{
@@ -60,6 +112,24 @@ func SellOrder(c *fiber.Ctx) error {
 	})
 }
 
+// canPlace := CheckBuyer(inputData.StockSymbol, inputData.StockType, inputData.Price, inputData.Quantity)
+// switch canPlace {
+// case "fullfill":
+//
+//	FullFillSellOrder(inputData.StockSymbol, inputData.Price, inputData.Quantity, inputData.StockType, inputData.UserId)
+//	// UnLockBalance(inputData.UserId, inputData.Quantity)
+//
+// case "partial":
+//
+//	PlacePartialSellOrder(inputData.StockSymbol, inputData.Price, inputData.Quantity, inputData.StockType, inputData.UserId)
+//	// updatedLockedAmount := inputData.Quantity - GetFullFillableQuantity(inputData.StockSymbol, inputData.Price, inputData.Quantity, inputData.StockType)
+//	// UnLockBalance(inputData.UserId, updatedLockedAmount)
+//
+// case "none":
+//
+//		PlaceSellOrder(inputData.StockSymbol, inputData.Price, inputData.Quantity, inputData.StockType, inputData.UserId)
+//		// UnLockBalance(inputData.UserId, inputData.Quantity)
+//	}
 type inputFormat struct {
 	UserId      string `json:"userId"`
 	StockSymbol string `json:"stockSymbol"`
@@ -138,25 +208,39 @@ func BuyOrder(c *fiber.Ctx) error {
 
 				amount := quantityToTake * inputData.Price
 				global.UserManager.DebitBalance(inputData.UserId, amount) //debit the qty of user
-				global.UserManager.CreditBalance(sellerId, amount)        //credit the quantity of seller
-
-				//remove lock of seller in stock_balances
-				lockedQty, _ := global.StockManager.GetLockedStocks(sellerId, inputData.StockSymbol, inputData.StockType)
-				lockedQty -= quantityToTake
-				global.StockManager.SetStocksLock(sellerId, inputData.StockSymbol, inputData.StockType, lockedQty)
+				if orderInfo.Reverse {
+					lockAmt, _ := global.UserManager.GetUserLocked(sellerId)
+					lockAmt -= quantityToTake * currentPrice
+					global.UserManager.UpdateUserInrLock(sellerId, lockAmt)
+					// global.UserManager.CreditBalance(sellerId, amount) //credit the quantity of seller
+					global.StockManager.AddNewUser(sellerId)
+					global.StockManager.AddStockBalancesSymbol(inputData.StockSymbol)
+					var reverseStock string = "yes"
+					if inputData.StockType == "yes" {
+						reverseStock = "no"
+					}
+					qty, _ := global.StockManager.GetQuantityStocks(sellerId, inputData.StockSymbol, reverseStock)
+					qty += quantityToTake
+					global.StockManager.SetStocksQuantity(sellerId, inputData.StockSymbol, reverseStock, qty)
+				} else {
+					global.UserManager.CreditBalance(sellerId, amount) //credit the quantity of seller
+					//remove lock of seller in stock_balances
+					lockedQty, _ := global.StockManager.GetLockedStocks(sellerId, inputData.StockSymbol, inputData.StockType)
+					lockedQty -= quantityToTake
+					global.StockManager.SetStocksLock(sellerId, inputData.StockSymbol, inputData.StockType, lockedQty)
+				}
 
 				// Update buyer's stock balance
 				AddStocksToBuyer(inputData.UserId, inputData.StockSymbol, inputData.StockType, inputData.Quantity)
 
-				// update total and quantity of seller
-				priceData.Total -= quantityToTake
-				orderInfo.Quantity -= quantityToTake
-				if orderInfo.Quantity == 0 {
-					delete(priceData.Orders, sellerId)
-				}
-
+				global.OrderBookManager.DecreaseUserQuantity(inputData.StockSymbol, inputData.StockType, priceStr, sellerId, quantityToTake)
+				global.OrderBookManager.DecreaseTotal(inputData.StockSymbol, inputData.StockType, priceStr, quantityToTake)
 				remainingQuantity -= quantityToTake
 			}
+		}
+		priceData = global.OrderBookManager.GetPriceMap(inputData.StockSymbol, inputData.StockType, priceStr)
+		if priceData.Total <= 0 {
+			global.OrderBookManager.RemovePrice(inputData.StockSymbol, inputData.StockType, priceStr)
 		}
 	}
 	if remainingQuantity > 0 {
@@ -169,4 +253,42 @@ func BuyOrder(c *fiber.Ctx) error {
 		}
 	}
 	return c.JSON(fiber.Map{"message": "Buy order placed and trade executed"})
+}
+
+func CancelOrder(c *fiber.Ctx) error {
+	var inputData inputFormat
+	if err := c.BodyParser(&inputData); err != nil {
+		return c.Status(fiber.StatusBadRequest).SendString("Invalid input data")
+	}
+	//have to update two variable stock_balances and orderbook
+	//first orderbook
+	priceStr := strconv.FormatInt(int64(inputData.Price), 10)
+	priceData := global.OrderBookManager.GetPriceMap(inputData.StockSymbol, inputData.StockType, priceStr)
+	// if priceData {
+	// 	return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+	// 		"message": "Sell order canceled",
+	// 	})
+	// }
+	global.OrderBookManager.DecreaseTotal(inputData.StockSymbol, inputData.StockType, priceStr, inputData.Quantity)
+	global.OrderBookManager.DecreaseUserQuantity(inputData.StockSymbol, inputData.StockType, priceStr, inputData.UserId, inputData.Quantity)
+
+	priceData = global.OrderBookManager.GetPriceMap(inputData.StockSymbol, inputData.StockType, priceStr)
+	if priceData.Total <= 0 {
+		global.OrderBookManager.RemovePrice(inputData.StockSymbol, inputData.StockType, priceStr)
+	}
+
+	stockData, exists := global.StockManager.GetStockSymbol(inputData.UserId, inputData.StockSymbol, inputData.StockType)
+	if !exists {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"message": "Invalid Input",
+		})
+	}
+	newLock := stockData.Locked - inputData.Quantity
+	global.StockManager.SetStocksLock(inputData.UserId, inputData.StockSymbol, inputData.StockType, newLock)
+	qty := stockData.Quantity + inputData.Quantity
+	global.StockManager.SetStocksQuantity(inputData.UserId, inputData.StockSymbol, inputData.StockType, qty)
+
+	return c.JSON(fiber.Map{
+		"message": "Sell order canceled",
+	})
 }

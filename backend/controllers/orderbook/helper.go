@@ -231,6 +231,13 @@ func PlaceReverseBuyOrder(stockSymbol string, price int, quantity int, stockType
 		return errors.New("invalid price for reverse order")
 	}
 	global.OrderBookManager.CreateOrderbookPrice(stockSymbol, reverseStockType, reversePrice, quantity, userId, true)
+	totalAmt := quantity * price
+	global.UserManager.DebitBalance(userId, totalAmt)
+	lockAmt, _ := global.UserManager.GetUserLocked(userId)
+	lockAmt += totalAmt
+	global.UserManager.UpdateUserInrLock(userId, lockAmt)
+	global.StockManager.AddNewUser(userId)
+	global.StockManager.AddStockBalancesSymbol(stockSymbol)
 	return nil
 }
 
@@ -510,6 +517,13 @@ func PlaceSellOrder(stockSymbol string, price, quantity int, stockType, userId s
 	}
 	global.OrderBookManager.AddOrderbookPrice(stockSymbol, stockType, price)
 	global.OrderBookManager.UpdateSellOrder(userId, stockSymbol, stockType, price, quantity)
+	locked, _ := global.StockManager.GetLockedStocks(userId, stockSymbol, stockType)
+	locked += quantity
+	global.StockManager.SetStocksLock(userId, stockSymbol, stockType, locked)
+	balance, _ := global.StockManager.GetQuantityStocks(userId, stockSymbol, stockType)
+
+	balance -= quantity
+	global.StockManager.SetStocksQuantity(userId, stockSymbol, stockType, balance)
 }
 
 func GetValidPrices(stockSymbol string, stockType string, price int) []int {
@@ -555,4 +569,40 @@ func AddStocksToBuyer(userId, stockSymbol, stockType string, quantity int) {
 		buyerStockOption.No.Quantity += quantity
 	}
 	global.StockManager.UpdateStockBalanceSymbol(userId, stockSymbol, buyerStockOption)
+}
+
+func checkValidStockBalance(userId, stockSymbol, stockType string, quantityToSell int) bool {
+	UserQty, err := global.StockManager.GetQuantityStocks(userId, stockSymbol, stockType)
+	if err != nil {
+		return false
+	}
+	return UserQty >= quantityToSell
+}
+
+func GetValidSellPrices(stockSymbol string, stockType string, price int) []int {
+	orderData, _ := global.OrderBookManager.GetOrderBook(stockSymbol)
+
+	var stockTypeData data.OrderYesNo
+	if stockType == "yes" {
+		stockTypeData = orderData.Yes
+	} else if stockType == "no" {
+		stockTypeData = orderData.No
+	}
+	var prices []int
+	for priceStr, priceData := range stockTypeData {
+		currPrice64, err := strconv.ParseInt(priceStr, 10, 64)
+		if err != nil {
+			continue
+		}
+		for _, orderInfo := range priceData.Orders {
+			if orderInfo.Reverse {
+				currPrice := int(currPrice64)
+				if currPrice >= price {
+					prices = append(prices, currPrice)
+				}
+			}
+		}
+	}
+	sort.Sort(sort.Reverse(sort.IntSlice(prices)))
+	return prices
 }
