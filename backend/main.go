@@ -68,6 +68,7 @@ func main() {
 	app.Get("/balances/stock/:userId?", stock.GetStockBalances)
 	app.Post("/order/buy", orderbook.BuyOrder)
 	app.Post("/order/sell", orderbook.SellOrder)
+	app.Post("/order/cancel", orderbook.CancelOrder)
 	// app.Get("/balances/inr", orderbook.GetOrderb
 	app.Post("/trade/mint", mint.MintStock)
 
