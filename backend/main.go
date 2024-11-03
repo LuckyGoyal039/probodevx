@@ -7,12 +7,6 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 	redis "github.com/probodevx/config"
-	inrBalance "github.com/probodevx/controllers/inrbalance"
-	"github.com/probodevx/controllers/mint"
-	"github.com/probodevx/controllers/orderbook"
-	"github.com/probodevx/controllers/reset"
-	"github.com/probodevx/controllers/stock"
-	"github.com/probodevx/routes"
 )
 
 func main() {
@@ -21,10 +15,10 @@ func main() {
 		Immutable: true,
 		Prefork:   false,
 	})
-	wsApp := fiber.New(fiber.Config{
-		Immutable: true,
-		Prefork:   false,
-	})
+	// wsApp := fiber.New(fiber.Config{
+	// 	Immutable: true,
+	// 	Prefork:   false,
+	// })
 
 	PORT := os.Getenv("PORT")
 	WSPORT := os.Getenv("WSPORT")
@@ -33,7 +27,7 @@ func main() {
 	}
 
 	if PORT == "" {
-		PORT = "8000"
+		PORT = "8001"
 	}
 
 	redisHost := os.Getenv("REDIS_HOST")

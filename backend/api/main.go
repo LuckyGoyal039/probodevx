@@ -39,7 +39,7 @@ func main() {
 
 	API_PORT := os.Getenv("API_PORT")
 	if API_PORT == "" {
-		API_PORT = "8001"
+		API_PORT = "8000"
 	}
 
 	routes.UserRoutes(app)
