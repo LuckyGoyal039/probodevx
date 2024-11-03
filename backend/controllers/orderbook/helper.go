@@ -236,6 +236,8 @@ func PlaceReverseBuyOrder(stockSymbol string, price int, quantity int, stockType
 	lockAmt, _ := global.UserManager.GetUserLocked(userId)
 	lockAmt += totalAmt
 	global.UserManager.UpdateUserInrLock(userId, lockAmt)
+	global.StockManager.AddNewUser(userId)
+	global.StockManager.AddStockBalancesSymbol(stockSymbol)
 	return nil
 }
 

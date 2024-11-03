@@ -208,12 +208,27 @@ func BuyOrder(c *fiber.Ctx) error {
 
 				amount := quantityToTake * inputData.Price
 				global.UserManager.DebitBalance(inputData.UserId, amount) //debit the qty of user
-				global.UserManager.CreditBalance(sellerId, amount)        //credit the quantity of seller
-
-				//remove lock of seller in stock_balances
-				lockedQty, _ := global.StockManager.GetLockedStocks(sellerId, inputData.StockSymbol, inputData.StockType)
-				lockedQty -= quantityToTake
-				global.StockManager.SetStocksLock(sellerId, inputData.StockSymbol, inputData.StockType, lockedQty)
+				if orderInfo.Reverse {
+					lockAmt, _ := global.UserManager.GetUserLocked(sellerId)
+					lockAmt -= quantityToTake * currentPrice
+					global.UserManager.UpdateUserInrLock(sellerId, lockAmt)
+					// global.UserManager.CreditBalance(sellerId, amount) //credit the quantity of seller
+					global.StockManager.AddNewUser(sellerId)
+					global.StockManager.AddStockBalancesSymbol(inputData.StockSymbol)
+					var reverseStock string = "yes"
+					if inputData.StockType == "yes" {
+						reverseStock = "no"
+					}
+					qty, _ := global.StockManager.GetQuantityStocks(sellerId, inputData.StockSymbol, reverseStock)
+					qty += quantityToTake
+					global.StockManager.SetStocksQuantity(sellerId, inputData.StockSymbol, reverseStock, qty)
+				} else {
+					global.UserManager.CreditBalance(sellerId, amount) //credit the quantity of seller
+					//remove lock of seller in stock_balances
+					lockedQty, _ := global.StockManager.GetLockedStocks(sellerId, inputData.StockSymbol, inputData.StockType)
+					lockedQty -= quantityToTake
+					global.StockManager.SetStocksLock(sellerId, inputData.StockSymbol, inputData.StockType, lockedQty)
+				}
 
 				// Update buyer's stock balance
 				AddStocksToBuyer(inputData.UserId, inputData.StockSymbol, inputData.StockType, inputData.Quantity)
