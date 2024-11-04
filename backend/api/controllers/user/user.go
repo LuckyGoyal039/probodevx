@@ -1,16 +1,15 @@
-// user/handlers.go
-package user
+package apiuser
 
 import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
 	redis "github.com/probodevx/config"
 	"github.com/probodevx/engine/data"
-	"github.com/probodevx/engine/global"
 )
 
 func CreateNewUser(c *fiber.Ctx) error {
@@ -31,37 +30,34 @@ func CreateNewUser(c *fiber.Ctx) error {
 	}
 
 	redisClient := redis.GetRedisClient()
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	// Push to queue
-	if _, err := redisClient.LPush(ctx, "user_events", eventJson).Result(); err != nil {
-		return c.Status(fiber.StatusInternalServerError).SendString("error pushing to queue")
-	}
-
-	// Subscribe to response channel
+	// Subscribe to channel
 	responseChan := fmt.Sprintf("user_response_%s", userId)
 	pubsub := redisClient.Subscribe(ctx, responseChan)
 	defer pubsub.Close()
 
-	// Wait for response with timeout
+	// Push to queue
+	if _, err := redisClient.LPush(ctx, "user_events", eventJson).Result(); err != nil {
+		log.Printf("Error pushing to queue: %v", err)
+		return c.Status(fiber.StatusInternalServerError).SendString("error pushing to queue")
+	}
+
+	log.Println("Waiting for response message...")
+
+	// Wait for response
 	msg, err := pubsub.ReceiveMessage(ctx)
 	if err != nil {
+		log.Printf("Error waiting for response: %v", err)
 		return c.Status(fiber.StatusInternalServerError).SendString("error waiting for response")
 	}
 
-	// Parse response
 	var response map[string]interface{}
 	if err := json.Unmarshal([]byte(msg.Payload), &response); err != nil {
+		log.Printf("Error parsing response: %v", err)
 		return c.Status(fiber.StatusInternalServerError).SendString("error parsing response")
 	}
 
 	return c.Status(fiber.StatusCreated).JSON(response)
-}
-
-func GetAllUsers(c *fiber.Ctx) error {
-	users := global.UserManager.GetAllUsers()
-	return c.JSON(fiber.Map{
-		"data": users,
-	})
 }

@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	"github.com/gofiber/fiber/v2"
-	"github.com/probodevx/global"
+	"github.com/probodevx/engine/global"
 )
 
 func GetStockBalances(c *fiber.Ctx) error {

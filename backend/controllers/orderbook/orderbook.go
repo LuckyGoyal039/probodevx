@@ -5,7 +5,7 @@ import (
 	"strconv"
 
 	"github.com/gofiber/fiber/v2"
-	"github.com/probodevx/global"
+	"github.com/probodevx/engine/global"
 )
 
 func GetOrderbookSymbol(c *fiber.Ctx) error {

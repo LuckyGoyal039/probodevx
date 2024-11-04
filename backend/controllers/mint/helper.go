@@ -2,8 +2,7 @@ package mint
 
 import (
 	"fmt"
-
-	"github.com/probodevx/global"
+	"github.com/probodevx/engine/global"
 )
 
 func updateBalance(price int, quantity int, userId string) error {

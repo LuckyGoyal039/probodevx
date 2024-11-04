@@ -1,7 +1,7 @@
 // global/managers.go
 package global
 
-import "github.com/probodevx/data"
+import "github.com/probodevx/engine/data"
 
 var (
 	UserManager      = data.NewUserManager()

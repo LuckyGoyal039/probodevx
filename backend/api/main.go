@@ -6,13 +6,13 @@ import (
 	"os"
 
 	"github.com/gofiber/fiber/v2"
+	apiuser "github.com/probodevx/api/controllers/user"
 	redis "github.com/probodevx/config"
 	inrBalance "github.com/probodevx/controllers/inrbalance"
 	"github.com/probodevx/controllers/mint"
 	"github.com/probodevx/controllers/orderbook"
 	"github.com/probodevx/controllers/reset"
 	"github.com/probodevx/controllers/stock"
-	"github.com/probodevx/routes"
 )
 
 func main() {
@@ -42,7 +42,9 @@ func main() {
 		API_PORT = "8000"
 	}
 
-	routes.UserRoutes(app)
+	// routes.UserRoutes(app)
+	app.Post("/user/create/:userId", apiuser.CreateNewUser)
+	// app.Get("/user/all", user.GetAllUsers)
 	app.Post("/onramp/inr", inrBalance.AddUserBalance)
 	app.Post("/symbol/create/:stockSymbol", stock.CreateStock)
 	app.Post("/reset", reset.ResetAll)

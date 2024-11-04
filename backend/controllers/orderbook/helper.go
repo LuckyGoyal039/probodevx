@@ -9,8 +9,8 @@ import (
 	"strconv"
 
 	redis "github.com/probodevx/config"
-	"github.com/probodevx/data"
-	"github.com/probodevx/global"
+	"github.com/probodevx/engine/data"
+	"github.com/probodevx/engine/global"
 )
 
 func CheckCanPlaceOrder(stockSymbol string, price int, quantity int, stockType string) string {
