@@ -59,7 +59,7 @@ func MintStock(c *fiber.Ctx) error {
 		})
 	}
 
-	return c.Status(fiber.StatusCreated).JSON(response.Data)
+	return c.JSON(response.Data)
 
 	// if err := updateBalance(inputData.Price, inputData.Quantity, inputData.UserId); err != nil {
 	// 	return c.Status(fiber.StatusBadRequest).SendString("insufficient balance")

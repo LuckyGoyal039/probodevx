@@ -54,5 +54,6 @@ func main() {
 	app.Get("/orderbook/:stockSymbol?", api_orderbook.GetOrderbookSymbol)
 	app.Post("/order/buy", api_orderbook.BuyOrder)
 	app.Post("/order/sell", api_orderbook.SellOrder)
+	app.Post("/order/cancel", api_orderbook.CancelOrder)
 	app.Listen(fmt.Sprintf(":%s", API_PORT))
 }

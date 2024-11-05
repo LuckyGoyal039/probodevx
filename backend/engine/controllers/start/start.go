@@ -9,6 +9,7 @@ import (
 
 	inrBalance "github.com/probodevx/engine/controllers/inrbalance"
 	"github.com/probodevx/engine/controllers/mint"
+	"github.com/probodevx/engine/controllers/orderbook"
 	"github.com/probodevx/engine/controllers/reset"
 	"github.com/probodevx/engine/controllers/stock"
 	"github.com/probodevx/engine/controllers/user"
@@ -41,9 +42,10 @@ var eventHandlers = map[string]EventHandler{
 	"get_stock_balance": stock.GetStockBalances,
 	"reset":             reset.ResetAll,
 	"trade_mint":        mint.MintStock,
-	// "buy_order":     handleUserEvent,
-	// "sell_order":    handleUserEvent,
-	// "orderbook":     handleUserEvent,
+	"buy_order":         orderbook.BuyOrder,
+	"sell_order":        orderbook.SellOrder,
+	"orderbook":         orderbook.GetOrderbookSymbol,
+	"cancel_order":      orderbook.CancelOrder,
 	// "inr_balance":   handleUserEvent,
 }
 
@@ -91,7 +93,7 @@ func (p *LocalUserProcessor) StartProcessing(ctx context.Context) error {
 			// Call the event handler
 			responseData, err := handler(ctx, event)
 			if err != nil {
-				errMsg := fmt.Sprintf("Error processing %s event: %v", event.EventType, err)
+				errMsg := fmt.Sprintf("%v", err)
 				log.Println(errMsg)
 				p.publishErrorResponse(ctx, event.UserId, errMsg, event.ChannelName)
 				continue

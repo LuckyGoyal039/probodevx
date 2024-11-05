@@ -32,7 +32,7 @@ func SellOrder(ctx context.Context, event shared.EventModel) (interface{}, error
 	price := int(priceFloat)
 	ok := checkValidStockBalance(userId, stockSymbol, stockType, quantity)
 	if !ok {
-		return map[string]interface{}{"message": "Insufficient stock balance"}, nil
+		return nil, fmt.Errorf("Insufficient stock balance")
 	}
 	var reverseStockType string
 	if stockType == "yes" {
@@ -101,7 +101,7 @@ func BuyOrder(ctx context.Context, event shared.EventModel) (interface{}, error)
 	quantity := int(quantityFloat)
 	price := int(priceFloat)
 	if ok := checkValidBalance(userId, price, quantity); !ok {
-		return map[string]interface{}{"message": "Insufficient INR balance"}, nil
+		return nil, fmt.Errorf("Insufficient INR balance")
 	}
 	priceList := GetValidPrices(stockSymbol, stockType, price)
 	remainingQuantity := quantity

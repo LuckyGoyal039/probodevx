@@ -36,16 +36,7 @@ func GetStockBalances(c *fiber.Ctx) error {
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).SendString(err.Error())
 	}
-
-	// if userId == "" {
-	// 	return c.JSON(global.StockManager.GetAllStockBalances())
-	// }
-	// newData, exists := global.StockManager.GetStockBalances(userId)
-
-	// if !exists {
-	// 	return c.Status(fiber.StatusNotFound).SendString("User not found")
-	// }
-	return c.JSON(response)
+	return c.JSON(response.Data)
 }
 
 func CreateStock(c *fiber.Ctx) error {

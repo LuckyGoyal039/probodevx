@@ -39,7 +39,7 @@ func GetOrderbookSymbol(c *fiber.Ctx) error {
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).SendString("error waiting for response")
 	}
-	return c.JSON(response)
+	return c.JSON(response.Data)
 }
 
 type inputFormat struct {
@@ -87,16 +87,16 @@ func SellOrder(c *fiber.Ctx) error {
 
 	response, err := common.GetMessage(pubsub, ctx)
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).SendString(err.Error())
+		return c.Status(fiber.StatusBadRequest).SendString(err.Error())
 	}
 
 	if !response.Success {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": response.Error,
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"message": response.Error,
 		})
 	}
 
-	return c.Status(fiber.StatusCreated).JSON(response.Data)
+	return c.JSON(response.Data)
 }
 
 func BuyOrder(c *fiber.Ctx) error {
@@ -136,16 +136,16 @@ func BuyOrder(c *fiber.Ctx) error {
 
 	response, err := common.GetMessage(pubsub, ctx)
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).SendString(err.Error())
+		return c.Status(fiber.StatusBadRequest).SendString(err.Error())
 	}
 
 	if !response.Success {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": response.Error,
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"message": response.Error,
 		})
 	}
 
-	return c.Status(fiber.StatusCreated).JSON(response.Data)
+	return c.JSON(response.Data)
 }
 
 func CancelOrder(c *fiber.Ctx) error {
@@ -184,14 +184,14 @@ func CancelOrder(c *fiber.Ctx) error {
 
 	response, err := common.GetMessage(pubsub, ctx)
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).SendString(err.Error())
+		return c.Status(fiber.StatusBadRequest).SendString(err.Error())
 	}
 
 	if !response.Success {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": response.Error,
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"message": response.Error,
 		})
 	}
 
-	return c.Status(fiber.StatusCreated).JSON(response.Data)
+	return c.JSON(response.Data)
 }

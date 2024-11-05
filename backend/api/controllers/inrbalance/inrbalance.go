@@ -46,7 +46,7 @@ func GetInrBalance(c *fiber.Ctx) error {
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).SendString("error waiting for response")
 	}
-	return c.JSON(response)
+	return c.JSON(response.Data)
 }
 func AddUserBalance(c *fiber.Ctx) error {
 	type User struct {
