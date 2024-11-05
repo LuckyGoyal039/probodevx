@@ -8,6 +8,7 @@ import (
 	"time"
 
 	inrBalance "github.com/probodevx/engine/controllers/inrbalance"
+	"github.com/probodevx/engine/controllers/mint"
 	"github.com/probodevx/engine/controllers/reset"
 	"github.com/probodevx/engine/controllers/stock"
 	"github.com/probodevx/engine/controllers/user"
@@ -39,11 +40,11 @@ var eventHandlers = map[string]EventHandler{
 	"create_symbol":     stock.CreateStock,
 	"get_stock_balance": stock.GetStockBalances,
 	"reset":             reset.ResetAll,
+	"trade_mint":        mint.MintStock,
 	// "orderbook":     handleUserEvent,
 	// "inr_balance":   handleUserEvent,
 	// "buy_order":     handleUserEvent,
 	// "sell_order":    handleUserEvent,
-	// "trade_mint":    handleUserEvent,
 }
 
 func (p *LocalUserProcessor) StartProcessing(ctx context.Context) error {
