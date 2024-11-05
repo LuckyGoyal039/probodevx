@@ -7,12 +7,18 @@ import (
 	"github.com/redis/go-redis/v9"
 )
 
-type UserEvent struct {
+type EventModel struct {
 	UserId    string    `json:"userId"`
 	EventType string    `json:"eventType"`
 	Timestamp time.Time `json:"timestamp"`
+	Data      map[string]interface{}
 }
 
+type ResponseModel struct {
+	Success bool        `json:"success"`
+	Data    interface{} `json:"data,omitempty"`
+	Error   string      `json:"error,omitempty"`
+}
 type UserProcessor struct {
 	RedisClient *redis.Client
 }

@@ -8,7 +8,7 @@ import (
 	"github.com/probodevx/engine/shared"
 )
 
-func CreateNewUser(ctx context.Context, event shared.UserEvent) (interface{}, error) {
+func CreateNewUser(ctx context.Context, event shared.EventModel) (interface{}, error) {
 	userId := event.UserId
 
 	if userId == "" {
