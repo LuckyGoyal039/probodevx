@@ -8,6 +8,7 @@ import (
 	"time"
 
 	inrBalance "github.com/probodevx/engine/controllers/inrbalance"
+	"github.com/probodevx/engine/controllers/reset"
 	"github.com/probodevx/engine/controllers/stock"
 	"github.com/probodevx/engine/controllers/user"
 	"github.com/probodevx/engine/shared"
@@ -37,7 +38,7 @@ var eventHandlers = map[string]EventHandler{
 	"onramp_inr":        inrBalance.AddUserBalance,
 	"create_symbol":     stock.CreateStock,
 	"get_stock_balance": stock.GetStockBalances,
-	// "reset":         handleUserEvent,
+	"reset":             reset.ResetAll,
 	// "orderbook":     handleUserEvent,
 	// "inr_balance":   handleUserEvent,
 	// "buy_order":     handleUserEvent,

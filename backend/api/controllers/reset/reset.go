@@ -1,34 +1,41 @@
-package reset_api
+package resetApi
 
 import (
 	"context"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/probodevx/api/controllers/common"
 	redis "github.com/probodevx/config"
+	"github.com/probodevx/engine/shared"
 )
 
 func ResetAll(c *fiber.Ctx) error {
+	userId := c.Params("userId")
+	event := shared.EventModel{
+		UserId:      "",
+		Timestamp:   time.Now(),
+		Data:        make(map[string]interface{}),
+		EventType:   "reset",
+		ChannelName: "resetAll",
+	}
 	redisClient := redis.GetRedisClient()
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-
-	message := []byte("reset_all")
-
-	if _, err := redisClient.LPush(ctx, "reset_all", message).Result(); err != nil {
-		println("Error push in queue, %s", err)
-		return c.Status(fiber.StatusInternalServerError).SendString("something went wrong")
+	pubsub, err := common.SubscribeToResponse(redisClient, userId, ctx, "resetAll")
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).SendString(err.Error())
 	}
-
-	pubsub := redisClient.Subscribe(ctx, "reset_all")
 	defer pubsub.Close()
 
-	if _, err := pubsub.ReceiveMessage(ctx); err != nil {
-		return c.Status(fiber.StatusInternalServerError).SendString("error waiting for response")
+	if err := common.PushToQueue(redisClient, "main_queue", event, 10*time.Second); err != nil {
+		return c.Status(fiber.StatusInternalServerError).SendString(err.Error())
 	}
 
-	// if ok := data.ResetAllManager(global.UserManager, global.StockManager, global.OrderBookManager); !ok {
-	// 	return c.SendString("something went wrong")
-	// }
-	return c.SendString("reset successfully")
+	response, err := common.GetMessage(pubsub, ctx)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).SendString(err.Error())
+	}
+
+	return c.JSON(response)
 }
