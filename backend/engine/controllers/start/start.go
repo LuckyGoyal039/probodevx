@@ -41,10 +41,10 @@ var eventHandlers = map[string]EventHandler{
 	"get_stock_balance": stock.GetStockBalances,
 	"reset":             reset.ResetAll,
 	"trade_mint":        mint.MintStock,
-	// "orderbook":     handleUserEvent,
-	// "inr_balance":   handleUserEvent,
 	// "buy_order":     handleUserEvent,
 	// "sell_order":    handleUserEvent,
+	// "orderbook":     handleUserEvent,
+	// "inr_balance":   handleUserEvent,
 }
 
 func (p *LocalUserProcessor) StartProcessing(ctx context.Context) error {
