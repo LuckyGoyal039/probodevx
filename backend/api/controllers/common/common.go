@@ -12,8 +12,14 @@ import (
 )
 
 // SubscribeToResponse subscribes to the user response channel and returns the channel.
-func SubscribeToResponse(redisClient *redis.Client, userId string, ctx context.Context) (*redis.PubSub, error) {
-	responseChan := fmt.Sprintf("user_response_%s", userId)
+func SubscribeToResponse(redisClient *redis.Client, userId string, ctx context.Context, channelName string) (*redis.PubSub, error) {
+	var responseChan string
+	if channelName == "" {
+		responseChan = fmt.Sprintf("user_response_%s", userId)
+	} else {
+		responseChan = channelName
+	}
+
 	pubsub := redisClient.Subscribe(ctx, responseChan)
 	return pubsub, nil
 }

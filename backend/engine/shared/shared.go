@@ -8,10 +8,11 @@ import (
 )
 
 type EventModel struct {
-	UserId    string    `json:"userId"`
-	EventType string    `json:"eventType"`
-	Timestamp time.Time `json:"timestamp"`
-	Data      map[string]interface{}
+	UserId      string    `json:"userId"`
+	EventType   string    `json:"eventType"`
+	Timestamp   time.Time `json:"timestamp"`
+	ChannelName string    `json:"channelName"`
+	Data        map[string]interface{}
 }
 
 type ResponseModel struct {

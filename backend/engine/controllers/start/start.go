@@ -8,6 +8,7 @@ import (
 	"time"
 
 	inrBalance "github.com/probodevx/engine/controllers/inrbalance"
+	"github.com/probodevx/engine/controllers/stock"
 	"github.com/probodevx/engine/controllers/user"
 	"github.com/probodevx/engine/shared"
 	"github.com/redis/go-redis/v9"
@@ -31,15 +32,14 @@ func NewUserProcessor(redisClient *redis.Client) *LocalUserProcessor {
 type EventHandler func(ctx context.Context, event shared.EventModel) (interface{}, error)
 
 var eventHandlers = map[string]EventHandler{
-	"create_user": user.CreateNewUser,
-	"get_balance": inrBalance.GetInrBalance,
-	"add_balance": inrBalance.AddUserBalance,
-	// "onramp_inr":    handleOrderBookEvent,
-	// "create_symbol": handleUserEvent,
+	"create_user":       user.CreateNewUser,
+	"get_balance":       inrBalance.GetInrBalance,
+	"onramp_inr":        inrBalance.AddUserBalance,
+	"create_symbol":     stock.CreateStock,
+	"get_stock_balance": stock.GetStockBalances,
 	// "reset":         handleUserEvent,
 	// "orderbook":     handleUserEvent,
 	// "inr_balance":   handleUserEvent,
-	// "stock_balance": handleUserEvent,
 	// "buy_order":     handleUserEvent,
 	// "sell_order":    handleUserEvent,
 	// "trade_mint":    handleUserEvent,
@@ -61,7 +61,7 @@ func (p *LocalUserProcessor) StartProcessing(ctx context.Context) error {
 					continue
 				}
 				log.Printf("Error reading from queue: %v", err)
-				p.publishErrorResponse(ctx, "", "Error reading from queue")
+				p.publishErrorResponse(ctx, "", "Error reading from queue", "")
 				continue
 			}
 
@@ -71,7 +71,7 @@ func (p *LocalUserProcessor) StartProcessing(ctx context.Context) error {
 			var event shared.EventModel
 			if err := json.Unmarshal([]byte(result[1]), &event); err != nil {
 				log.Printf("Error parsing event: %v", err)
-				p.publishErrorResponse(ctx, "", "Error parsing event")
+				p.publishErrorResponse(ctx, "", "Error parsing event", event.ChannelName)
 				continue
 			}
 
@@ -80,7 +80,7 @@ func (p *LocalUserProcessor) StartProcessing(ctx context.Context) error {
 			if !exists {
 				errMsg := fmt.Sprintf("No handler found for event type: %s", event.EventType)
 				log.Println(errMsg)
-				p.publishErrorResponse(ctx, event.UserId, errMsg)
+				p.publishErrorResponse(ctx, event.UserId, errMsg, event.ChannelName)
 				continue
 			}
 
@@ -91,7 +91,7 @@ func (p *LocalUserProcessor) StartProcessing(ctx context.Context) error {
 			if err != nil {
 				errMsg := fmt.Sprintf("Error processing %s event: %v", event.EventType, err)
 				log.Println(errMsg)
-				p.publishErrorResponse(ctx, event.UserId, errMsg)
+				p.publishErrorResponse(ctx, event.UserId, errMsg, event.ChannelName)
 				continue
 			}
 
@@ -100,14 +100,19 @@ func (p *LocalUserProcessor) StartProcessing(ctx context.Context) error {
 				Success: true,
 				Data:    responseData,
 			}
-			p.publishResponse(ctx, event.UserId, response)
+			p.publishResponse(ctx, event.UserId, response, event.ChannelName)
 			log.Printf("Successfully processed %s event for user: %s", event.EventType, event.UserId)
 		}
 	}
 }
 
-func (p *LocalUserProcessor) publishErrorResponse(ctx context.Context, userId, errorMessage string) {
-	responseChan := fmt.Sprintf("user_response_%s", userId)
+func (p *LocalUserProcessor) publishErrorResponse(ctx context.Context, userId, errorMessage string, channelName string) {
+	var responseChan string
+	if channelName == "" {
+		responseChan = fmt.Sprintf("user_response_%s", userId)
+	} else {
+		responseChan = channelName
+	}
 	response := shared.ResponseModel{
 		Success: false,
 		Error:   errorMessage,
@@ -122,8 +127,14 @@ func (p *LocalUserProcessor) publishErrorResponse(ctx context.Context, userId, e
 	}
 }
 
-func (p *LocalUserProcessor) publishResponse(ctx context.Context, userId string, response shared.ResponseModel) {
-	responseChan := fmt.Sprintf("user_response_%s", userId)
+func (p *LocalUserProcessor) publishResponse(ctx context.Context, userId string, response shared.ResponseModel, channelName string) {
+	var responseChan string
+	if channelName == "" {
+		responseChan = fmt.Sprintf("user_response_%s", userId)
+	} else {
+		responseChan = channelName
+	}
+
 	responseJson, err := json.Marshal(response)
 	if err != nil {
 		log.Printf("Error marshaling response: %v", err)

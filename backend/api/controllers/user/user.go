@@ -17,17 +17,18 @@ func CreateNewUser(c *fiber.Ctx) error {
 	}
 
 	event := shared.EventModel{
-		UserId:    userId,
-		EventType: "create_user",
-		Timestamp: time.Now(),
-		Data:      make(map[string]interface{}),
+		UserId:      userId,
+		EventType:   "create_user",
+		Timestamp:   time.Now(),
+		ChannelName: "",
+		Data:        make(map[string]interface{}),
 	}
 
 	redisClient := redis.GetRedisClient()
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	pubsub, err := common.SubscribeToResponse(redisClient, userId, ctx)
+	pubsub, err := common.SubscribeToResponse(redisClient, userId, ctx, "")
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).SendString(err.Error())
 	}

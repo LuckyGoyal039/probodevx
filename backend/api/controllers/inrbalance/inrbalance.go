@@ -21,17 +21,18 @@ func GetInrBalance(c *fiber.Ctx) error {
 	userId := c.Params("userId")
 
 	event := shared.EventModel{
-		UserId:    userId,
-		EventType: "get_balance",
-		Timestamp: time.Now(),
-		Data:      make(map[string]interface{}),
+		UserId:      userId,
+		EventType:   "get_balance",
+		Timestamp:   time.Now(),
+		ChannelName: "inr_balances",
+		Data:        make(map[string]interface{}),
 	}
 
 	redisClient := redis.GetRedisClient()
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	pubsub, err := common.SubscribeToResponse(redisClient, userId, ctx)
+	pubsub, err := common.SubscribeToResponse(redisClient, userId, ctx, "inr_balances")
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).SendString(err.Error())
 	}
@@ -59,9 +60,10 @@ func AddUserBalance(c *fiber.Ctx) error {
 	}
 
 	event := shared.EventModel{
-		UserId:    inputs.UserId,
-		EventType: "add_balance",
-		Timestamp: time.Now(),
+		UserId:      inputs.UserId,
+		EventType:   "onramp_inr",
+		Timestamp:   time.Now(),
+		ChannelName: "",
 		Data: map[string]interface{}{
 			"amount": inputs.Amount,
 		},
@@ -71,7 +73,7 @@ func AddUserBalance(c *fiber.Ctx) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	pubsub, err := common.SubscribeToResponse(redisClient, inputs.UserId, ctx)
+	pubsub, err := common.SubscribeToResponse(redisClient, inputs.UserId, ctx, "")
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).SendString(err.Error())
 	}

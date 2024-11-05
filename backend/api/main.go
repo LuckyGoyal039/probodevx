@@ -7,12 +7,12 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 	apiInrBalance "github.com/probodevx/api/controllers/inrbalance"
+	apiStock "github.com/probodevx/api/controllers/stock"
 	apiuser "github.com/probodevx/api/controllers/user"
 	redis "github.com/probodevx/config"
 	"github.com/probodevx/controllers/mint"
 	"github.com/probodevx/controllers/orderbook"
 	"github.com/probodevx/controllers/reset"
-	"github.com/probodevx/controllers/stock"
 )
 
 func main() {
@@ -47,10 +47,10 @@ func main() {
 	// app.Get("/user/all", user.GetAllUsers)
 	app.Get("/balances/inr/:userId?", apiInrBalance.GetInrBalance)
 	app.Post("/onramp/inr", apiInrBalance.AddUserBalance)
-	app.Post("/symbol/create/:stockSymbol", stock.CreateStock)
+	app.Post("/symbol/create/:stockSymbol", apiStock.CreateStock)
+	app.Get("/balances/stock/:userId?", apiStock.GetStockBalances)
 	app.Post("/reset", reset.ResetAll)
 	app.Get("/orderbook/:stockSymbol?", orderbook.GetOrderbookSymbol)
-	app.Get("/balances/stock/:userId?", stock.GetStockBalances)
 	app.Post("/order/buy", orderbook.BuyOrder)
 	app.Post("/order/sell", orderbook.SellOrder)
 	// app.Get("/balances/inr", orderbook.GetOrderb
