@@ -1,4 +1,4 @@
-package wss
+package main
 
 import (
 	"context"
@@ -146,7 +146,7 @@ func WebSocketHandler(c *fiber.Ctx) error {
 		// Poll Redis and broadcast messages to all clients in the room
 		for {
 			log.Printf("Polling Redis for event: %s", event)
-			msg, err := redisClient.RPop(context.TODO(), "orderbook:"+event).Result()
+			msg, err := redisClient.Subscribe(context.TODO(), "orderbook:"+event).Result()
 			if err != nil {
 				if err.Error() == "redis: nil" {
 					time.Sleep(500 * time.Millisecond) // Throttle polling

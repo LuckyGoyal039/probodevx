@@ -14,29 +14,33 @@ import (
 
 // SubscribeToResponse subscribes to the user response channel and returns the channel.
 func SubscribeToResponse(redisClient *redis.Client, userId string, ctx context.Context, channelName string) (*redis.PubSub, error) {
-	var responseChan string
-	if channelName == "" {
-		responseChan = fmt.Sprintf("user_response_%s", userId)
-	} else {
-		responseChan = channelName
-	}
+	// var responseChan string
+	// if channelName == "" {
+	// 	responseChan = fmt.Sprintf("user_response_%s", userId)
+	// } else {
+	// 	responseChan = channelName
+	// }
 
-	pubsub := redisClient.Subscribe(ctx, responseChan)
+	pubsub := redisClient.Subscribe(ctx, channelName)
 	return pubsub, nil
 }
 
 // GetMessage waits for a message from the pubsub and returns the response.
-func GetMessage(pubsub *redis.PubSub, ctx context.Context) (shared.ResponseModel, error) {
-	msg, err := pubsub.ReceiveMessage(ctx)
-	if err != nil {
-		return shared.ResponseModel{}, fmt.Errorf("error waiting for response: %w", err)
-	}
+func GetMessage(pubsub *redis.PubSub, ctx context.Context, userId string) (shared.ResponseModel, error) {
+	for {
+		msg, err := pubsub.ReceiveMessage(ctx)
+		if err != nil {
+			return shared.ResponseModel{}, fmt.Errorf("error waiting for response: %w", err)
+		}
 
-	var response shared.ResponseModel
-	if err := json.Unmarshal([]byte(msg.Payload), &response); err != nil {
-		return shared.ResponseModel{}, fmt.Errorf("error parsing response: %w", err)
+		var response shared.ResponseModel
+		if err := json.Unmarshal([]byte(msg.Payload), &response); err != nil {
+			return shared.ResponseModel{}, fmt.Errorf("error parsing response: %w", err)
+		}
+		if userId == "" || response.User == userId {
+			return response, nil
+		}
 	}
-	return response, nil
 }
 
 func PushToQueue(redisClient *redis.Client, queueName string, event interface{}, timeout time.Duration) error {

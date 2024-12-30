@@ -8,7 +8,7 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/websocket/v2"
 	redis "github.com/probodevx/config"
-	"github.com/probodevx/controllers/wss"
+	// "github.com/probodevx/controllers/wss"
 )
 
 func main() {
@@ -44,7 +44,7 @@ func main() {
 		}
 		return fiber.ErrUpgradeRequired
 	})
-	wsApp.Get("/ws/:event", wss.WebSocketHandler)
+	wsApp.Get("/ws/:event", WebSocketHandler)
 
 	wsApp.Listen(fmt.Sprintf(":%s", WSPORT))
 

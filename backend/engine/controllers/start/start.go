@@ -103,6 +103,7 @@ func (p *LocalUserProcessor) StartProcessing(ctx context.Context) error {
 			response := shared.ResponseModel{
 				Success: true,
 				Data:    responseData,
+				User:    event.UserId,
 			}
 			p.publishResponse(ctx, event.UserId, response, event.ChannelName)
 			log.Printf("Successfully processed %s event for user: %s", event.EventType, event.UserId)

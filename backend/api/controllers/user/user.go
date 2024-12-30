@@ -15,12 +15,13 @@ func CreateNewUser(c *fiber.Ctx) error {
 	if userId == "" {
 		return c.Status(fiber.StatusBadRequest).SendString("invalid userId")
 	}
+	channelName := "inr_balance"
 
 	event := shared.EventModel{
 		UserId:      userId,
 		EventType:   "create_user",
 		Timestamp:   time.Now(),
-		ChannelName: "",
+		ChannelName: channelName,
 		Data:        make(map[string]interface{}),
 	}
 
@@ -28,7 +29,7 @@ func CreateNewUser(c *fiber.Ctx) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	pubsub, err := common.SubscribeToResponse(redisClient, userId, ctx, "")
+	pubsub, err := common.SubscribeToResponse(redisClient, userId, ctx, channelName)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).SendString(err.Error())
 	}
@@ -38,7 +39,7 @@ func CreateNewUser(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusInternalServerError).SendString(err.Error())
 	}
 
-	response, err := common.GetMessage(pubsub, ctx)
+	response, err := common.GetMessage(pubsub, ctx, userId)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).SendString(err.Error())
 	}

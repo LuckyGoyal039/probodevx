@@ -23,11 +23,12 @@ func MintStock(c *fiber.Ctx) error {
 	if err := c.BodyParser(&inputData); err != nil {
 		return c.Status(fiber.StatusBadRequest).SendString("Invalid credentials")
 	}
+	channelName := "stock_balance"
 	event := shared.EventModel{
 		UserId:      inputData.UserId,
 		Timestamp:   time.Now(),
 		EventType:   "trade_mint",
-		ChannelName: "",
+		ChannelName: channelName,
 		Data: map[string]interface{}{
 			"quantity":    inputData.Quantity,
 			"price":       inputData.Price,
@@ -38,7 +39,7 @@ func MintStock(c *fiber.Ctx) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	pubsub, err := common.SubscribeToResponse(redisClient, inputData.UserId, ctx, "")
+	pubsub, err := common.SubscribeToResponse(redisClient, inputData.UserId, ctx, channelName)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).SendString(err.Error())
 	}
@@ -48,7 +49,7 @@ func MintStock(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusInternalServerError).SendString(err.Error())
 	}
 
-	response, err := common.GetMessage(pubsub, ctx)
+	response, err := common.GetMessage(pubsub, ctx, inputData.UserId)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).SendString(err.Error())
 	}
@@ -60,27 +61,4 @@ func MintStock(c *fiber.Ctx) error {
 	}
 
 	return c.JSON(response.Data)
-
-	// if err := updateBalance(inputData.Price, inputData.Quantity, inputData.UserId); err != nil {
-	// 	return c.Status(fiber.StatusBadRequest).SendString("insufficient balance")
-	// }
-	// stockData, exist := global.StockManager.GetStockBalances(inputData.UserId)
-	// if !exist {
-	// 	global.StockManager.AddNewUser(inputData.UserId)
-	// }
-	// global.StockManager.AddStockBalancesSymbol(inputData.StockSymbol)
-	// data := stockData[inputData.StockSymbol]
-	// data.No.Quantity = inputData.Quantity
-	// data.Yes.Quantity = inputData.Quantity
-	// global.StockManager.UpdateStockBalanceSymbol(inputData.UserId, inputData.StockSymbol, data)
-
-	// global.OrderBookManager.AddOrderBookSymbol(inputData.StockSymbol)
-
-	// currentBalance, exist := global.UserManager.GetUserBalance(inputData.UserId)
-	// if !exist {
-	// 	return c.Status(fiber.StatusBadRequest).SendString("user not found")
-	// }
-	// return c.Status(fiber.StatusOK).JSON(fiber.Map{
-	// 	"message": fmt.Sprintf("Minted %v 'yes' and 'no' tokens for user %s, remaining balance is %v", inputData.Quantity, inputData.UserId, currentBalance),
-	// })
 }

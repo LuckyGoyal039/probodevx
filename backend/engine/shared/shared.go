@@ -19,6 +19,7 @@ type ResponseModel struct {
 	Success bool        `json:"success"`
 	Data    interface{} `json:"data,omitempty"`
 	Error   string      `json:"error,omitempty"`
+	User    string      `json:"userId,omitempty"`
 }
 type UserProcessor struct {
 	RedisClient *redis.Client

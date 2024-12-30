@@ -19,12 +19,12 @@ type UserBalanceEvent struct {
 
 func GetInrBalance(c *fiber.Ctx) error {
 	userId := c.Params("userId")
-
+	channelName := "inr_balance"
 	event := shared.EventModel{
 		UserId:      userId,
 		EventType:   "get_balance",
 		Timestamp:   time.Now(),
-		ChannelName: "inr_balances",
+		ChannelName: channelName,
 		Data:        make(map[string]interface{}),
 	}
 
@@ -32,7 +32,7 @@ func GetInrBalance(c *fiber.Ctx) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	pubsub, err := common.SubscribeToResponse(redisClient, userId, ctx, "inr_balances")
+	pubsub, err := common.SubscribeToResponse(redisClient, userId, ctx, channelName)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).SendString(err.Error())
 	}
@@ -42,7 +42,7 @@ func GetInrBalance(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusInternalServerError).SendString("error pushing to queue")
 	}
 
-	response, err := common.GetMessage(pubsub, ctx)
+	response, err := common.GetMessage(pubsub, ctx, userId)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).SendString("error waiting for response")
 	}
@@ -58,12 +58,12 @@ func AddUserBalance(c *fiber.Ctx) error {
 	if err := c.BodyParser(&inputs); err != nil {
 		return c.Status(fiber.StatusBadRequest).SendString("Invalid inputs")
 	}
-
+	channelName := "inr_balance"
 	event := shared.EventModel{
 		UserId:      inputs.UserId,
 		EventType:   "onramp_inr",
 		Timestamp:   time.Now(),
-		ChannelName: "",
+		ChannelName: channelName,
 		Data: map[string]interface{}{
 			"amount": inputs.Amount,
 		},
@@ -73,7 +73,7 @@ func AddUserBalance(c *fiber.Ctx) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	pubsub, err := common.SubscribeToResponse(redisClient, inputs.UserId, ctx, "")
+	pubsub, err := common.SubscribeToResponse(redisClient, inputs.UserId, ctx, channelName)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).SendString(err.Error())
 	}
@@ -83,7 +83,7 @@ func AddUserBalance(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusInternalServerError).SendString("Error pushing to queue")
 	}
 
-	response, err := common.GetMessage(pubsub, ctx)
+	response, err := common.GetMessage(pubsub, ctx, inputs.UserId)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).SendString("Error waiting for response")
 	}

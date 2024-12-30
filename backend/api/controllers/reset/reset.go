@@ -12,17 +12,18 @@ import (
 
 func ResetAll(c *fiber.Ctx) error {
 	userId := c.Params("userId")
+	channelName := "resetAll"
 	event := shared.EventModel{
 		UserId:      "",
 		Timestamp:   time.Now(),
 		Data:        make(map[string]interface{}),
 		EventType:   "reset",
-		ChannelName: "resetAll",
+		ChannelName: channelName,
 	}
 	redisClient := redis.GetRedisClient()
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	pubsub, err := common.SubscribeToResponse(redisClient, userId, ctx, "resetAll")
+	pubsub, err := common.SubscribeToResponse(redisClient, userId, ctx, channelName)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).SendString(err.Error())
 	}
@@ -32,7 +33,7 @@ func ResetAll(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusInternalServerError).SendString(err.Error())
 	}
 
-	response, err := common.GetMessage(pubsub, ctx)
+	response, err := common.GetMessage(pubsub, ctx, "")
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).SendString(err.Error())
 	}

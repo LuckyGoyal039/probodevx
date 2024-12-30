@@ -12,11 +12,12 @@ import (
 
 func GetOrderbookSymbol(c *fiber.Ctx) error {
 	stockSymbol := c.Params("stockSymbol")
+	channelName := "get_orderbook"
 	event := shared.EventModel{
 		UserId:      "",
 		Timestamp:   time.Now(),
 		EventType:   "orderbook",
-		ChannelName: "get_orderbook",
+		ChannelName: channelName,
 		Data: map[string]interface{}{
 			"stockSymbol": stockSymbol,
 		},
@@ -25,7 +26,7 @@ func GetOrderbookSymbol(c *fiber.Ctx) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	pubsub, err := common.SubscribeToResponse(redisClient, "", ctx, "get_orderbook")
+	pubsub, err := common.SubscribeToResponse(redisClient, "", ctx, channelName)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).SendString(err.Error())
 	}
@@ -35,7 +36,7 @@ func GetOrderbookSymbol(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusInternalServerError).SendString("error pushing to queue")
 	}
 
-	response, err := common.GetMessage(pubsub, ctx)
+	response, err := common.GetMessage(pubsub, ctx, "")
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).SendString("error waiting for response")
 	}
@@ -57,11 +58,12 @@ func SellOrder(c *fiber.Ctx) error {
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).SendString("Invalid inputs")
 	}
+	channelName := "orderbook"
 	event := shared.EventModel{
 		UserId:      inputData.UserId,
 		Timestamp:   time.Now(),
 		EventType:   "sell_order",
-		ChannelName: "",
+		ChannelName: channelName,
 		Data: map[string]interface{}{
 			"userId":      inputData.UserId,
 			"stockSymbol": inputData.StockSymbol,
@@ -75,7 +77,7 @@ func SellOrder(c *fiber.Ctx) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	pubsub, err := common.SubscribeToResponse(redisClient, inputData.UserId, ctx, "")
+	pubsub, err := common.SubscribeToResponse(redisClient, inputData.UserId, ctx, channelName)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).SendString(err.Error())
 	}
@@ -85,7 +87,7 @@ func SellOrder(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusInternalServerError).SendString(err.Error())
 	}
 
-	response, err := common.GetMessage(pubsub, ctx)
+	response, err := common.GetMessage(pubsub, ctx, inputData.UserId)
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).SendString(err.Error())
 	}
@@ -106,11 +108,12 @@ func BuyOrder(c *fiber.Ctx) error {
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).SendString("Invalid inputs")
 	}
+	channelName := "orderbook"
 	event := shared.EventModel{
 		UserId:      inputData.UserId,
 		Timestamp:   time.Now(),
 		EventType:   "buy_order",
-		ChannelName: "",
+		ChannelName: channelName,
 		Data: map[string]interface{}{
 			"userId":      inputData.UserId,
 			"stockSymbol": inputData.StockSymbol,
@@ -134,7 +137,7 @@ func BuyOrder(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusInternalServerError).SendString(err.Error())
 	}
 
-	response, err := common.GetMessage(pubsub, ctx)
+	response, err := common.GetMessage(pubsub, ctx, inputData.UserId)
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).SendString(err.Error())
 	}
@@ -154,11 +157,12 @@ func CancelOrder(c *fiber.Ctx) error {
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).SendString("Invalid inputs")
 	}
+	channelName := "orderbook"
 	event := shared.EventModel{
 		UserId:      inputData.UserId,
 		Timestamp:   time.Now(),
 		EventType:   "cancel_order",
-		ChannelName: "",
+		ChannelName: channelName,
 		Data: map[string]interface{}{
 			"userId":      inputData.UserId,
 			"stockSymbol": inputData.StockSymbol,
@@ -172,7 +176,7 @@ func CancelOrder(c *fiber.Ctx) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	pubsub, err := common.SubscribeToResponse(redisClient, inputData.UserId, ctx, "")
+	pubsub, err := common.SubscribeToResponse(redisClient, inputData.UserId, ctx, channelName)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).SendString(err.Error())
 	}
@@ -182,7 +186,7 @@ func CancelOrder(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusInternalServerError).SendString(err.Error())
 	}
 
-	response, err := common.GetMessage(pubsub, ctx)
+	response, err := common.GetMessage(pubsub, ctx, inputData.UserId)
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).SendString(err.Error())
 	}

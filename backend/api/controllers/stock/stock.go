@@ -12,17 +12,18 @@ import (
 
 func GetStockBalances(c *fiber.Ctx) error {
 	userId := c.Params("userId")
+	channelName := "stock_balances_new"
 	event := shared.EventModel{
 		UserId:      userId,
 		Timestamp:   time.Now(),
 		Data:        make(map[string]interface{}),
 		EventType:   "get_stock_balance",
-		ChannelName: "stock_balances",
+		ChannelName: channelName,
 	}
 	redisClient := redis.GetRedisClient()
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	pubsub, err := common.SubscribeToResponse(redisClient, userId, ctx, "stock_balances")
+	pubsub, err := common.SubscribeToResponse(redisClient, userId, ctx, channelName)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).SendString(err.Error())
 	}
@@ -32,7 +33,7 @@ func GetStockBalances(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusInternalServerError).SendString(err.Error())
 	}
 
-	response, err := common.GetMessage(pubsub, ctx)
+	response, err := common.GetMessage(pubsub, ctx, "")
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).SendString(err.Error())
 	}
@@ -42,12 +43,12 @@ func GetStockBalances(c *fiber.Ctx) error {
 func CreateStock(c *fiber.Ctx) error {
 
 	stockSymbol := c.Params("stockSymbol")
-
+	channelName := "orderbook"
 	event := shared.EventModel{
 		UserId:      "",
 		EventType:   "create_symbol",
 		Timestamp:   time.Now(),
-		ChannelName: "",
+		ChannelName: channelName,
 		Data: map[string]interface{}{
 			"stockSymbol": stockSymbol,
 		},
@@ -55,7 +56,7 @@ func CreateStock(c *fiber.Ctx) error {
 	redisClient := redis.GetRedisClient()
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	pubsub, err := common.SubscribeToResponse(redisClient, "", ctx, "")
+	pubsub, err := common.SubscribeToResponse(redisClient, "", ctx, channelName)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).SendString(err.Error())
 	}
@@ -65,7 +66,7 @@ func CreateStock(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusInternalServerError).SendString(err.Error())
 	}
 
-	response, err := common.GetMessage(pubsub, ctx)
+	response, err := common.GetMessage(pubsub, ctx, "")
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).SendString(err.Error())
 	}
