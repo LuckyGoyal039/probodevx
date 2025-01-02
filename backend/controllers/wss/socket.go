@@ -1,10 +1,8 @@
 package wss
 
 import (
-	"context"
 	"log"
 	"sync"
-	"time"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/websocket/v2"
@@ -125,6 +123,7 @@ func WebSocketHandler(c *fiber.Ctx) error {
 
 		// Redis client
 		redisClient := redis.GetRedisClient()
+		println(redisClient)
 
 		// Handle incoming messages from the client
 		go func() {
@@ -144,21 +143,21 @@ func WebSocketHandler(c *fiber.Ctx) error {
 		}()
 
 		// Poll Redis and broadcast messages to all clients in the room
-		for {
-			log.Printf("Polling Redis for event: %s", event)
-			msg, err := redisClient.RPop(context.TODO(), "orderbook:"+event).Result()
-			if err != nil {
-				if err.Error() == "redis: nil" {
-					time.Sleep(500 * time.Millisecond) // Throttle polling
-					continue
-				}
-				log.Println("Redis error:", err)
-				break
-			}
+		// for {
+		// 	log.Printf("Polling Redis for event: %s", event)
+		// 	msg := redisClient.Subscribe(context.TODO(), "orderbook:"+event)
+		// 	// if err != nil {
+		// 	// 	if err.Error() == "redis: nil" {
+		// 	// 		time.Sleep(500 * time.Millisecond) // Throttle polling
+		// 	// 		continue
+		// 	// 	}
+		// 	// 	log.Println("Redis error:", err)
+		// 	// 	break
+		// 	// }
 
-			// Broadcast the Redis message to all clients in the room
-			log.Printf("Broadcasting to room %s: %s", event, msg)
-			manager.Broadcast(event, []byte(msg))
-		}
+		// 	// Broadcast the Redis message to all clients in the room
+		// 	log.Printf("Broadcasting to room %s: %s", event, msg)
+		// 	manager.Broadcast(event, []byte(msg))
+		// }
 	})(c)
 }
